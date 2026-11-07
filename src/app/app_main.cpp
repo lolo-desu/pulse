@@ -1366,6 +1366,22 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 }
             }
             s->appPrefs.Load();
+#ifdef PULSE_WITH_TEST_HOOKS
+            if (s->isolatedTest && s->shot.active &&
+                GetEnvironmentVariableW(L"PULSE_TEST_CLASSIC_PREFS", nullptr, 0) > 0) {
+                s->appPrefs.row_height = 24;
+                s->appPrefs.sidebar_width = 180;
+                s->appPrefs.list_mtime_hint = 0;
+                s->appPrefs.list_smart_date = false;
+                s->appPrefs.list_zebra_rows = false;
+                s->appPrefs.menu_acrylic = false;
+                s->appPrefs.tray_hide_when_empty = false;
+                s->appPrefs.frame_transparency = 0;
+                s->appPrefs.wallpaper_look = 0;
+                s->appPrefs.show_hints = false;
+                s->appPrefs.accent_rgb = L"0078D7";
+            }
+#endif
             ApplyKeymapPrefs(*s);
             ApplyNetworkPrefs(*s);  // 显示隐藏共享 reaches fs before any share list
             NoteRunningVersion(*s);
@@ -4549,6 +4565,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
 #endif
     if (state.shot.active) {
 #ifdef PULSE_WITH_TEST_HOOKS
+        wchar_t classic_probe[32768]{};
+        if (state.isolatedTest && GetEnvironmentVariableW(L"PULSE_TEST_CLASSIC_RIBBON", classic_probe, ARRAYSIZE(classic_probe))) {
+            extern int RunClassicRibbonProbe(AppState&, const wchar_t*);
+            const int result = WaitForShotReady(state) ? RunClassicRibbonProbe(state, classic_probe) : 4;
+            DestroyWindow(hwnd);
+            OleUninitialize();
+            return result;
+        }
+
         wchar_t experience_probe[32768]{};
         if (state.isolatedTest && GetEnvironmentVariableW(L"PULSE_TEST_FOLDER_SIZE_EXPERIENCE", experience_probe, ARRAYSIZE(experience_probe))) {
             extern int RunFolderSizeExperienceProbe(AppState&, const wchar_t*);

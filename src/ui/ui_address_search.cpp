@@ -14,7 +14,7 @@ D2D1_RECT_F MainRenderer::AddressSearchButtonRect(float w) const {
 void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, const Theme& theme) {
     if (search_hidden_) return;
     const auto field = SearchBarRect(w);
-    if (!vm.address_searching && w-EffectiveSidebarWidth(w)<480*scale_) {
+    if (!vm.address_searching && (ClassicRibbon() ? field.right - field.left < 40 * scale_ : w-EffectiveSidebarWidth(w)<480*scale_)) {
         const auto button=D2D1::RectF(field.right-32*scale_,field.top,field.right,field.bottom);
         DrawButton(button,theme,IsHovered(vm,HitTestResult::AddressSearch) ? theme.fill_hover : kTransparent,
             kIconSearch,L"",theme.text_secondary,true,true);
@@ -75,7 +75,7 @@ void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, c
             if (IsHovered(vm, region)) fill.a = std::min(1.0f, fill.a + 0.06f);
             ComPtr<ID2D1SolidColorBrush> brush;
             dc->CreateSolidColorBrush(fill, &brush);
-            if (brush.get()) dc->FillRoundedRectangle(D2D1::RoundedRect(bounds, 4.0f * scale_, 4.0f * scale_), brush.get());
+            if (brush.get()) dc->FillRoundedRectangle(D2D1::RoundedRect(bounds, ClassicRibbon() ? 0.0f : 4.0f * scale_, ClassicRibbon() ? 0.0f : 4.0f * scale_), brush.get());
         };
         // Scope chip: where the search runs, labelled with the folder name.
         if (layout.scope.right > layout.scope.left) {
@@ -141,7 +141,7 @@ void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, c
         search.placeholder = vm.address_search_placeholder.empty()
             ? l10n::Get(l10n::StringId::Search) : vm.address_search_placeholder;
         search.leading_glyph = L"\xE721";
-        search.trailing_keycap = L"Ctrl+K";
+        search.trailing_keycap = ClassicRibbon() ? L"" : L"Ctrl+K";
         search.suppress_text = true;
         painter_.DrawTextField(search);
         MakeBrush(compositor_->Dc(),theme.text_secondary,brTextSecondary_);

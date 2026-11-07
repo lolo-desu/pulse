@@ -15,7 +15,7 @@ public:
         dc_->CreateSolidColorBrush(theme.accent, &accent_);
         dc_->CreateSolidColorBrush(active ? theme.list_selected_outline : WithAlpha(theme.text, 0.30f), &outline_brush_);
         dc_->CreateSolidColorBrush(theme.fill_hover, &hover_);
-        if (active && !high_contrast) {
+        if (active && !high_contrast && theme.radius_control > 0.0f) {
             const D2D1_GRADIENT_STOP stops[] = {{0, theme.list_selected_start}, {1, theme.list_selected_end}};
             Microsoft::WRL::ComPtr<ID2D1GradientStopCollection> collection;
             if (SUCCEEDED(dc_->CreateGradientStopCollection(stops, 2, &collection)))
@@ -28,12 +28,12 @@ public:
                 (std::max)(cell.top + scale, cell.bottom - scale)};
     }
     void Hover(D2D1_RECT_F cell) const {
-        if (hover_) dc_->FillRoundedRectangle(D2D1::RoundedRect(Bounds(cell, scale_),
+        if (hover_) dc_->FillRoundedRectangle(D2D1::RoundedRect(SelectionBounds(cell),
             theme_.radius_control * scale_, theme_.radius_control * scale_), hover_.Get());
     }
     // bar: the accent bar at the left edge (off where an item check box marks the row).
     void Selected(D2D1_RECT_F cell, bool bar = true) const {
-        const auto sel = Bounds(cell, scale_);
+        const auto sel = SelectionBounds(cell);
         const float radius = theme_.radius_control * scale_;
         const auto rr = D2D1::RoundedRect(sel, radius, radius);
         if (gradient_) {
@@ -45,7 +45,7 @@ public:
             dc_->DrawRoundedRectangle(D2D1::RoundedRect({sel.left + half, sel.top + half,
                 sel.right - half, sel.bottom - half}, radius, radius), outline_brush_.Get(), scale_);
         }
-        if (bar && active_ && accent_) {
+        if (bar && active_ && accent_ && radius > 0.0f) {
             const float height = (std::min)(18 * scale_, (std::max)(0.0f, sel.bottom - sel.top - 8 * scale_));
             const float y = (sel.top + sel.bottom - height) * 0.5f;
             dc_->FillRoundedRectangle(D2D1::RoundedRect({sel.left + scale_, y,
@@ -53,6 +53,9 @@ public:
         }
     }
 private:
+    D2D1_RECT_F SelectionBounds(D2D1_RECT_F cell) const {
+        return theme_.radius_control == 0.0f ? cell : Bounds(cell, scale_);
+    }
     ID2D1DeviceContext* dc_;
     const Theme& theme_;
     float scale_;

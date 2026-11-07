@@ -35,6 +35,7 @@ struct ToolbarLayout {
     std::array<D2D1_RECT_F, kToolbarPinSlots> pins{};   // pinned commands, then pinned apps
     D2D1_RECT_F pin_label{};   // drop mode only (ToolbarPinOptions::label_width)
     uint64_t pin_dividers = 0; // bit i: a separator is drawn before pins[i] (both pins shown)
+    std::array<D2D1_RECT_F, 4> ribbon_tabs{};
     bool narrow = false;       // the narrow tier: every pin waits in More
 };
 
@@ -180,6 +181,53 @@ inline ToolbarLayout MakeToolbarLayout(float width, float scale, float top, floa
         out.filter = {x,top+50*scale,x,top+82*scale};
     }
     out.group = {x,top+50*scale,group_width > 0.0f ? x+group_w : x,top+82*scale};
+    return out;
+}
+
+// Windows 10 style ribbon: tabs, labeled commands, then the address row.
+// Missing commands retain empty rectangles and remain accessible from File.
+inline ToolbarLayout MakeClassicRibbonLayout(float width, float scale, float top,
+                                             int pin_count, int app_from, bool drop_mode, float filter_expand = 0.0f) {
+    ToolbarLayout out;
+    for (int i = 0; i < 4; ++i)
+        out.ribbon_tabs[i] = {i * std::min(60.0f * scale, width / 4), top,
+                              (i + 1) * std::min(60.0f * scale, width / 4), top + 24 * scale};
+    const float nav_top = top + 120 * scale;
+    float x = 4 * scale;
+    const float nav_step = (width < 320 * scale ? 24.0f : 30.0f) * scale;
+    for (int i = 0; i < 3; ++i) {
+        out.navigation[i] = NavigationButtonAt(x, nav_top, scale, nav_step);
+        x += nav_step;
+    }
+    const float search_width = width < 440 * scale ? 28 * scale
+        : std::clamp(width * 0.28f, 120 * scale, 360 * scale);
+    out.search = {width - search_width - 8 * scale, nav_top + 3 * scale, width - 8 * scale, nav_top + 29 * scale};
+    out.address = {x + 4 * scale, nav_top + 3 * scale, out.search.left - 30 * scale, nav_top + 29 * scale};
+    out.navigation[3] = {out.address.right, nav_top, out.search.left - 6 * scale, nav_top + 32 * scale};
+    out.create = {8 * scale, top + 30 * scale, 92 * scale, top + 92 * scale};
+    out.overflow = {width - 38 * scale, top + 31 * scale, width - 6 * scale, top + 63 * scale};
+    // A vertical view group keeps its full labels without stealing file commands.
+    const bool filter_open = filter_expand > 0.0f;
+    const bool hide_create = width < 220 * scale || (filter_open && width < 360 * scale);
+    if (hide_create) out.create = {};
+    const float view_width = filter_open ? std::min(200 * scale, width - (hide_create ? 52 : 148) * scale)
+        : width >= 760 * scale ? 116 * scale : 36 * scale;
+    const float view_left = out.overflow.left - view_width - 6 * scale;
+    out.sort = {view_left, top + 29 * scale, view_left + view_width, top + 55 * scale};
+    out.filter = {view_left, top + 56 * scale, view_left + view_width, top + 82 * scale};
+    out.group = {view_left, top + 83 * scale, view_left + view_width, top + 109 * scale};
+    x = 104 * scale;
+    const float button_width = 64 * scale;
+    const int count = std::min(pin_count, kToolbarPinSlots);
+    for (int i = 0; i < count; ++i) {
+        if (x + button_width > view_left - 8 * scale) break;
+        out.pins[i] = {x, top + 30 * scale, x + button_width - 2 * scale, top + 94 * scale};
+        x += button_width;
+        if ((i + 1) % 3 == 0) { x += 10 * scale; out.pin_dividers |= uint64_t{1} << (i + 1); }
+    }
+    out.narrow = width < 640 * scale;
+    (void)app_from;
+    (void)drop_mode;
     return out;
 }
 

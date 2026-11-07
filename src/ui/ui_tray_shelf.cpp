@@ -74,7 +74,7 @@ ShelfPalette MakeShelfPalette(bool dark, bool hc, const Theme& theme) {
     p.move = Rgba(0xD9772F);
     p.move2 = Rgba(0xE08A48);
     p.warn = Rgba(0xF2A93B);
-    p.on_acc = Rgba(0xFFFFFF);
+    p.on_acc = dark ? Rgba(0xF0F0F0) : Rgba(0x202020);
     p.folder = Rgba(0xF5B942);
     if (hc) {
         p.tray = theme.surface_flyout;
@@ -90,25 +90,25 @@ ShelfPalette MakeShelfPalette(bool dark, bool hc, const Theme& theme) {
         return p;
     }
     if (dark) {
-        p.tray = Mix(Rgba(0x0F1521), p.acc, 0.02f);
-        p.edge = Alpha(p.acc, 0.32f);
-        p.strong = Rgba(0xEEF0FF);
-        p.text = Rgba(0xCFD5EA);
-        p.sub = Rgba(0x8A93AD);
-        p.faint = Rgba(0x6F7891);
-        p.chip = Rgba(0xFFFFFF, 0.055f);
-        p.chip_hot = Alpha(p.acc, 0.26f);
+        p.tray = Rgba(0x202020);
+        p.edge = Rgba(0x555555);
+        p.strong = Rgba(0xF0F0F0);
+        p.text = Rgba(0xDEDEDE);
+        p.sub = Rgba(0xB8B8B8);
+        p.faint = Rgba(0xAAAAAA);
+        p.chip = Rgba(0x303030);
+        p.chip_hot = Rgba(0x3C3C3C);
         p.ib_hot = Rgba(0xFFFFFF, 0.07f);
         p.kbd = Rgba(0xFFFFFF, 0.05f);
     } else {
-        p.tray = Mix(Rgba(0xF6F7FB), p.acc, 0.035f);
-        p.edge = Alpha(p.acc, 0.30f);
+        p.tray = Rgba(0xF0F0F0);
+        p.edge = Rgba(0xB8B8B8);
         p.strong = Rgba(0x1B1F2A);
         p.text = Rgba(0x2E3442);
         p.sub = Rgba(0x5B6478);
         p.faint = Rgba(0x7B8396);
         p.chip = Rgba(0x000000, 0.05f);
-        p.chip_hot = Alpha(p.acc, 0.16f);
+        p.chip_hot = Rgba(0xDDEBFA);
         p.ib_hot = Rgba(0x000000, 0.06f);
         p.kbd = Rgba(0x000000, 0.06f);
     }
@@ -274,7 +274,7 @@ void MainRenderer::DrawTrayShelf(const WindowViewModel& vm, const D2D1_RECT_F& r
     const float s = scale_;
     tray_panel_rc_ = rc;
     const float panel_h = rc.bottom - rc.top;
-    const float radius = std::min(12.0f * s, panel_h * 0.5f);
+    const float radius = 0.0f;
 
     ComPtr<ID2D1SolidColorBrush> br;
     dc->CreateSolidColorBrush(p.tray, &br);
@@ -289,7 +289,7 @@ void MainRenderer::DrawTrayShelf(const WindowViewModel& vm, const D2D1_RECT_F& r
     const D2D1_COLOR_F edge = vm.tray_drop ? Alpha(p.acc2, 0.75f) : p.edge;
     br->SetColor(edge);
     dc->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(rc.left + 0.5f, rc.top + 0.5f,
-        rc.right - 0.5f, rc.bottom - 0.5f), radius - 0.5f, radius - 0.5f), br.get(), 1.0f);
+        rc.right - 0.5f, rc.bottom - 0.5f), radius, radius), br.get(), 1.0f);
 
     ComPtr<ID2D1Factory> factory;
     dc->GetFactory(&factory);
@@ -348,8 +348,8 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
     dc->CreateSolidColorBrush(p.text, &br);
     if (!br.get()) return;
     auto B = [&](const D2D1_COLOR_F& c) { br->SetColor(c); return br.get(); };
-    auto fill = [&](const D2D1_RECT_F& r, float radius, const D2D1_COLOR_F& c) {
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r, radius, radius), B(c));
+    auto fill = [&](const D2D1_RECT_F& r, float /*radius*/, const D2D1_COLOR_F& c) {
+        dc->FillRectangle(r, B(c));
     };
     auto hot = [&](TrayShelfHit h, int sub = -1) {
         return IsHovered(vm, HitTestResult::TrayShelf, static_cast<int>(h), sub);
@@ -359,7 +359,7 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
 
     if (stage == static_cast<int>(TrayStage::Strip)) {
         DrawShelfIcon(dc, B(p.acc2), ShelfIcon::Tray, g.strip_icon, 16.0f * s);
-        ShelfText(compositor_, ShelfFormat(0), B(p.acc2), l10n::Get(StringId::TrayShelfTitle), g.strip_title);
+        ShelfText(compositor_, ShelfFormat(0), B(p.strong), l10n::Get(StringId::TrayShelfTitle), g.strip_title);
         ShelfText(compositor_, ShelfFormat(1), B(p.faint),
                   l10n::Get(g.strip_hint_short ? StringId::TrayStripHintShort : StringId::TrayStripHint),
                   g.strip_hint);
@@ -389,12 +389,12 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
             const float on = mv ? Clamp01(d.mode_t) : 1.0f - Clamp01(d.mode_t);
             const D2D1_RECT_F h = g.half[i];
             const float cx = (h.left + h.right) * 0.5f, cy = (h.top + h.bottom) * 0.5f;
-            const float sc = 1.0f + 0.035f * EaseOutBack(on);
+            const float sc = 1.0f;
             dc->SetTransform(D2D1::Matrix3x2F::Scale(sc, sc, D2D1::Point2F(cx, cy)) * old);
-            const D2D1_COLOR_F on_fill = mv ? Rgba(0xD9772F, 0.20f) : Alpha(p.acc, 0.22f);
+            const D2D1_COLOR_F on_fill = p.chip_hot;
             const D2D1_COLOR_F on_edge = mv ? p.move2 : p.acc2;
             const D2D1_COLOR_F off_edge = Alpha(p.acc2, 0.28f);
-            const float r = 10.0f * s;
+            const float r = 0.0f;
             const D2D1_RECT_F inset = D2D1::RectF(h.left + 0.75f * s, h.top + 0.75f * s,
                                                   h.right - 0.75f * s, h.bottom - 0.75f * s);
             if (on > 0.01f) fill(h, r, Alpha(on_fill, on));
@@ -403,7 +403,7 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
                                          1.5f * s, dash.get());
             if (on > 0.01f)
                 dc->DrawRoundedRectangle(D2D1::RoundedRect(inset, r, r), B(Alpha(on_edge, on)), 1.5f * s);
-            const D2D1_COLOR_F icon_c = Mix(p.sub, mv ? Rgba(0xFFC89E) : Rgba(0xC6CEFF), on);
+            const D2D1_COLOR_F icon_c = Mix(p.sub, p.strong, on);
             const D2D1_COLOR_F b_c = Mix(p.text, vm.dark ? Rgba(0xFFFFFF) : p.strong, on);
             const float block = 20.0f * s + 5.0f * s + 17.0f * s + 5.0f * s + 14.0f * s;
             float y = cy - block * 0.5f;
@@ -430,9 +430,12 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
     }
 
     // ---------------------------------------------------------------- shelf
+    const bool compact = (rc.right - rc.left) / s - 20.0f < 210.0f;
     if (d.clip_count > 0 && g.clip_row.right > g.clip_row.left) DrawShelfClip(vm, g.clip_row, true, theme);
-    // r1: fan.
-    {
+    // r1: file preview; compact shelves reserve this row for the title.
+    if (compact) {
+        DrawShelfIcon(dc, B(p.sub), ShelfIcon::Tray, g.fan, 16.0f * s);
+    } else {
         const D2D1_RECT_F f = g.fan;
         const float b = Clamp01(d.bump);
         float bump = 0.0f;
@@ -443,31 +446,13 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
             D2D1::Matrix3x2F::Translation(0.0f, -3.0f * s * bump) * old;
         const int n = static_cast<int>(d.fan.size());
         const float dw_ = 26.0f * s, dh = 33.0f * s;
-        const float spread = EaseOutBack(d.fan_spread);
         for (int k = 0; k < n; ++k) {
             const TrayCardView& c = d.fan[static_cast<size_t>(k)];
-            float r = static_cast<float>(k - (n - 1)) * 9.0f;
-            float tx = r * 0.7f;
-            if (n >= 2 && k == 0) {  // :nth-child(1) spreads left
-                tx += (-10.0f - tx) * spread;
-                r += (-14.0f - r) * spread;
-            } else if (n == 3 && k == 2) {  // :nth-child(3) spreads right
-                tx += (10.0f - tx) * spread;
-                r += (12.0f - r) * spread;
-            }
+            const float tx = static_cast<float>(k - (n - 1)) * 6.0f;
             const D2D1_RECT_F doc = D2D1::RectF(f.left + 12.0f * s, f.top + 3.0f * s,
                                                 f.left + 12.0f * s + dw_, f.top + 3.0f * s + dh);
-            const D2D1_POINT_2F center = D2D1::Point2F((doc.left + doc.right) * 0.5f, (doc.top + doc.bottom) * 0.5f);
-            dc->SetTransform(D2D1::Matrix3x2F::Rotation(r, center) *
-                             D2D1::Matrix3x2F::Translation(tx * s, 0.0f) * fan_m);
+            dc->SetTransform(D2D1::Matrix3x2F::Translation(tx * s, tx * 0.35f * s) * fan_m);
             const float rr = (c.is_dir ? 3.0f : 4.0f) * s;
-            // Shadow: 0 3px 10px rgba(0,0,0,.4).
-            for (int l = 3; l >= 1; --l) {
-                const float grow = static_cast<float>(l) * 1.4f * s;
-                fill(D2D1::RectF(doc.left - grow, doc.top - grow + 3.0f * s, doc.right + grow,
-                                 doc.bottom + grow + 3.0f * s), rr + grow,
-                     Rgba(0x000000, (vm.dark ? 0.16f : 0.07f) * (1.0f - 0.25f * (l - 1))));
-            }
             if (c.is_dir) {
                 fill(doc, rr, Rgba(0xE8B64A));
                 fill(D2D1::RectF(doc.left, doc.top, doc.right, doc.top + dh * 0.45f), rr, Rgba(0xF0C35A));
@@ -495,18 +480,7 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
                         dc->DrawBitmap(bitmap, &dest, c.missing ? 0.45f : 1.0f,
                                        D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
                     }
-                    const std::wstring chip = TypeChipLabel(c.name, false);
-                    const D2D1_RECT_F strip = D2D1::RectF(doc.left + 3.0f * s, doc.bottom - 14.0f * s,
-                                                          doc.right - 3.0f * s, doc.bottom - 4.0f * s);
-                    fill(strip, 2.0f * s, Rgba(TypeChipRgb(chip)));
-                    // Folded corner.
-                    fill(D2D1::RectF(doc.right - 8.0f * s, doc.top, doc.right, doc.top + 8.0f * s), 2.0f * s,
-                         Rgba(0xC3C6CD));
-                    if (chip.size() <= 4) {
-                        ShelfText(compositor_, ShelfFormat(5), B(Rgba(0xFFFFFF)), chip,
-                                  D2D1::RectF(strip.left - 2.0f * s, strip.top - 1.0f * s, strip.right + 2.0f * s,
-                                              strip.bottom + 1.0f * s), DWRITE_TEXT_ALIGNMENT_CENTER);
-                    }
+
                 }
             }
         }
@@ -523,8 +497,16 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
         ShelfText(compositor_, ShelfFormat(5), B(p.on_acc), count, badge, DWRITE_TEXT_ALIGNMENT_CENTER);
         dc->SetTransform(old);
     }
-    // r1: meta.
-    {
+    // r1: metadata.
+    if (compact) {
+        ShelfText(compositor_, ShelfFormat(0), B(p.strong), l10n::Get(StringId::TrayShelfTitle),
+            D2D1::RectF(g.fan.right + 8.0f * s, g.meta.top, g.expand.left - 4.0f * s, g.meta.top + 28.0f * s));
+        std::wstring info = Fill(l10n::Get(StringId::TrayItemsFormat), L"{n}",
+            std::to_wstring(std::max(0, d.total_count - d.stale_count)));
+        if (d.total_size > 0) info += L" \u00B7 " + format::ByteSize(d.total_size, true);
+        ShelfText(compositor_, ShelfFormat(1), B(p.sub), info,
+            D2D1::RectF(g.meta.left, g.meta.top + 28.0f * s, g.meta.right, g.meta.bottom));
+    } else {
         const D2D1_RECT_F m = g.meta;
         const float y = m.top + 4.0f * s;
         const std::wstring count = Fill(l10n::Get(StringId::TrayItemsFormat), L"{n}", std::to_wstring(std::max(0, d.total_count - d.stale_count)));
@@ -550,20 +532,11 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
     // r2: split button.
     {
         const D2D1_RECT_F sp = g.split;
-        const float r = 9.0f * s;
+        const float r = 0.0f;
         const bool usable = !d.target.empty();
-        const D2D1_COLOR_F base = Mix(p.acc, p.move, d.mode_t);
-        // 0 4px 14px -6px glow under the button.
-        for (int l = 0; l < 3; ++l) {
-            const float off = (3.0f + 1.5f * static_cast<float>(l)) * s;
-            const float inset = (4.0f - 1.0f * static_cast<float>(l)) * s;
-            fill(D2D1::RectF(sp.left + inset, sp.top + off, sp.right - inset, sp.bottom + off), r,
-                 Alpha(base, (usable ? 0.16f : 0.06f) * (1.0f - 0.3f * static_cast<float>(l))));
-        }
-        fill(sp, r, usable ? base : Alpha(base, 0.45f));
-        // inset 0 1px 0 rgba(255,255,255,.14).
-        dc->DrawLine(D2D1::Point2F(sp.left + r * 0.6f, sp.top + 0.5f * s),
-                     D2D1::Point2F(sp.right - r * 0.6f, sp.top + 0.5f * s), B(Rgba(0xFFFFFF, 0.14f)), 1.0f * s);
+        const D2D1_COLOR_F base = vm.dark ? Rgba(0x303030) : Rgba(0xFAFAFA);
+        fill(sp, r, base);
+        dc->DrawRectangle(sp, B(usable ? p.edge : p.faint), 1.0f);
         ComPtr<ID2D1Factory> factory;
         dc->GetFactory(&factory);
         ComPtr<ID2D1RoundedRectangleGeometry> clip;
@@ -573,13 +546,14 @@ void MainRenderer::DrawTrayShelfLayer(const WindowViewModel& vm, int stage, cons
         if (hot(TrayShelfHit::ReleaseMenu)) fill(g.dd, 0.0f, Rgba(0xFFFFFF, 0.12f));
         if (clip.get()) dc->PopLayer();
         dc->DrawLine(D2D1::Point2F(g.dd.left, g.dd.top), D2D1::Point2F(g.dd.left, g.dd.bottom),
-                     B(Rgba(0xFFFFFF, 0.22f)), 1.0f);
+                     B(p.edge), 1.0f);
         DrawShelfIcon(dc, B(p.on_acc), ShelfIcon::Down, g.dd, 14.0f * s);
         if (!d.zipping) {
             std::wstring label = usable
                 ? Fill(l10n::Get(d.move_mode ? StringId::TrayMoveToFormat : StringId::TrayCopyToFormat),
                        L"{name}", d.target)
                 : l10n::Get(StringId::TrayNoTarget);
+            if (compact && usable) label = l10n::Get(d.move_mode ? StringId::TrayIntentMove : StringId::TrayIntentCopy);
             const float lt = Clamp01(d.label_t);
             const float e = EaseOutBack(lt);
             const D2D1_RECT_F lr = D2D1::RectF(g.go.left + 8.0f * s, g.go.top + 6.0f * s * (1.0f - e),
@@ -688,10 +662,10 @@ void MainRenderer::DrawShelfClip(const WindowViewModel& vm, const D2D1_RECT_F& r
         dc->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
                                             D2D1::IdentityMatrix(), EaseOutCubic(t / 0.6f)), nullptr);
     }
-    const float radius = row ? 8.0f * s : (rc.bottom - rc.top) * 0.5f;
-    const float a = row ? (hot ? 0.30f : 0.16f) : (hot ? 0.38f : 0.24f);
-    dc->FillRoundedRectangle(D2D1::RoundedRect(rc, radius, radius), B(Alpha(p.acc, a)));
-    const D2D1_COLOR_F ink = vm.dark ? Rgba(0xC6CEFF) : Mix(p.acc, Rgba(0x000000), 0.2f);
+    const float radius = 0.0f;
+
+    dc->FillRoundedRectangle(D2D1::RoundedRect(rc, radius, radius), B(hot ? p.chip_hot : p.chip));
+    const D2D1_COLOR_F ink = p.text;
     const D2D1_RECT_F ib = D2D1::RectF(rc.left + 10.0f * s, cy - 6.5f * s, rc.left + 23.0f * s, cy + 6.5f * s);
     DrawShelfIcon(dc, B(ink), ShelfIcon::Clip, ib, 13.0f * s);
     const std::wstring n = std::to_wstring(d.clip_count);
@@ -726,8 +700,8 @@ void MainRenderer::DrawTrayOpen(const WindowViewModel& vm, const D2D1_RECT_F& rc
     dc->CreateSolidColorBrush(p.text, &br);
     if (!br.get()) return;
     auto B = [&](const D2D1_COLOR_F& c) { br->SetColor(c); return br.get(); };
-    auto fill = [&](const D2D1_RECT_F& r, float radius, const D2D1_COLOR_F& c) {
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r, radius, radius), B(c));
+    auto fill = [&](const D2D1_RECT_F& r, float /*radius*/, const D2D1_COLOR_F& c) {
+        dc->FillRectangle(r, B(c));
     };
     auto hot = [&](TrayShelfHit h, int sub = -1) {
         return IsHovered(vm, HitTestResult::TrayShelf, static_cast<int>(h), sub);
@@ -802,7 +776,7 @@ void MainRenderer::DrawTrayOpen(const WindowViewModel& vm, const D2D1_RECT_F& rc
             } else {
                 const D2D1_RECT_F in_box = D2D1::RectF(box.left + 0.75f * s, box.top + 0.75f * s,
                                                        box.right - 0.75f * s, box.bottom - 0.75f * s);
-                dc->DrawRoundedRectangle(D2D1::RoundedRect(in_box, 4.25f * s, 4.25f * s),
+                dc->DrawRoundedRectangle(D2D1::RoundedRect(in_box, 0.0f, 0.0f),
                                          B(vm.dark ? Rgba(0xFFFFFF, 0.2f) : Rgba(0x000000, 0.25f)), 1.5f * s);
             }
             // Icon 16, gap 9.
@@ -849,18 +823,11 @@ void MainRenderer::DrawTrayOpen(const WindowViewModel& vm, const D2D1_RECT_F& rc
     }
     {
         const D2D1_RECT_F sp = g.split;
-        const float r = 9.0f * s;
+        const float r = 0.0f;
         const bool usable = !d.target.empty() && d.target_count > 0;
-        const D2D1_COLOR_F base = Mix(p.acc, p.move, d.mode_t);
-        for (int l = 0; l < 3; ++l) {
-            const float off = (3.0f + 1.5f * static_cast<float>(l)) * s;
-            const float inset = (4.0f - 1.0f * static_cast<float>(l)) * s;
-            fill(D2D1::RectF(sp.left + inset, sp.top + off, sp.right - inset, sp.bottom + off), r,
-                 Alpha(base, (usable ? 0.16f : 0.06f) * (1.0f - 0.3f * static_cast<float>(l))));
-        }
-        fill(sp, r, usable ? base : Alpha(base, 0.45f));
-        dc->DrawLine(D2D1::Point2F(sp.left + r * 0.6f, sp.top + 0.5f * s),
-                     D2D1::Point2F(sp.right - r * 0.6f, sp.top + 0.5f * s), B(Rgba(0xFFFFFF, 0.14f)), 1.0f * s);
+        const D2D1_COLOR_F base = vm.dark ? Rgba(0x303030) : Rgba(0xFAFAFA);
+        fill(sp, r, base);
+        dc->DrawRectangle(sp, B(usable ? p.edge : p.faint), 1.0f);
         dc->PushAxisAlignedClip(sp, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
         if (usable && hot(TrayShelfHit::Release))
             fill(D2D1::RectF(g.go.left, g.go.top, g.go.right + r, g.go.bottom), r, Rgba(0xFFFFFF, 0.12f));
@@ -868,7 +835,7 @@ void MainRenderer::DrawTrayOpen(const WindowViewModel& vm, const D2D1_RECT_F& rc
             fill(D2D1::RectF(g.dd.left - r, g.dd.top, g.dd.right, g.dd.bottom), r, Rgba(0xFFFFFF, 0.12f));
         dc->PopAxisAlignedClip();
         dc->DrawLine(D2D1::Point2F(g.dd.left, g.dd.top), D2D1::Point2F(g.dd.left, g.dd.bottom),
-                     B(Rgba(0xFFFFFF, 0.22f)), 1.0f);
+                     B(p.edge), 1.0f);
         DrawShelfIcon(dc, B(p.on_acc), ShelfIcon::Down, g.dd, 14.0f * s);
         std::wstring label = !d.target.empty()
             ? Fill(Fill(l10n::Get(d.move_mode ? StringId::TrayMoveNToFormat : StringId::TrayCopyNToFormat), L"{n}",
@@ -905,8 +872,8 @@ void MainRenderer::DrawTrayCompareCard(const WindowViewModel& vm, const Theme& t
     dc->CreateSolidColorBrush(p.text, &br);
     if (!br.get()) return;
     auto B = [&](const D2D1_COLOR_F& c) { br->SetColor(c); return br.get(); };
-    auto fill = [&](const D2D1_RECT_F& r, float radius, const D2D1_COLOR_F& c) {
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r, radius, radius), B(c));
+    auto fill = [&](const D2D1_RECT_F& r, float /*radius*/, const D2D1_COLOR_F& c) {
+        dc->FillRectangle(r, B(c));
     };
     auto hot = [&](TrayShelfHit h) { return IsHovered(vm, HitTestResult::TrayShelf, static_cast<int>(h)); };
     // #cmp.on: opacity .2 s, translateX(-14) scale(.97) -> none on (.2,1.3,.3,1) .45 s.
@@ -922,14 +889,8 @@ void MainRenderer::DrawTrayCompareCard(const WindowViewModel& vm, const Theme& t
     if (layered)
         dc->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
                                             D2D1::IdentityMatrix(), a), nullptr);
-    const float r = 14.0f * s;
-    // 0 30px 70px -10px rgba(0,0,0,.75): a few soft layers.
-    for (int l = 0; l < 6; ++l) {
-        const float grow = (2.0f + 5.0f * static_cast<float>(l)) * s;
-        fill(D2D1::RectF(g.box.left - grow + 10.0f * s, g.box.top - grow + 24.0f * s, g.box.right + grow - 10.0f * s,
-                         g.box.bottom + grow + 24.0f * s), r + grow, Rgba(0x000000, (vm.dark ? 0.11f : 0.04f)));
-    }
-    fill(g.box, r, vm.dark ? Rgba(0x1D222E) : Rgba(0xFFFFFF));
+    const float r = 0.0f;
+    fill(g.box, r, p.tray);
     dc->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(g.box.left + 0.5f, g.box.top + 0.5f, g.box.right - 0.5f,
         g.box.bottom - 0.5f), r, r), B(vm.dark ? Rgba(0xFFFFFF, 0.08f) : Rgba(0x000000, 0.10f)), 1.0f);
     const TrayCompareView& cv = d.compare;

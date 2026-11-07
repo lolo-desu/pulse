@@ -158,6 +158,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         }
         const TabStripMetrics strip = ComputeTabStrip(vm, rect.right);
         auto hitTab = [&](int i) -> bool {
+            if (ClassicRibbon() && (y < strip.y || y >= strip.y + strip.h)) return false;
             if (vm.tabs[static_cast<size_t>(i)].hidden) return false;
             // A scrolling strip only shows tabs between its arrows.
             if (strip.overflow && (x < strip.view_left || x >= strip.view_right)) return false;
@@ -216,16 +217,17 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             if (hitTab(i)) return r;
         }
         const float cx = strip.new_x;
-        if (x >= cx && x < cx + 32.0f * scale_) {
+        if (x >= cx && x < cx + 32.0f * scale_ &&
+            (!ClassicRibbon() || (y >= strip.y && y < strip.y + strip.h))) {
             r.region = HitTestResult::TabNew;
             return r;
         }
         }
-        if (x >= chrome.settings_left && x < chrome.settings_left + chrome.settings_w) {
+        if (!ClassicRibbon() && x >= chrome.settings_left && x < chrome.settings_left + chrome.settings_w) {
             r.region = HitTestResult::SettingsButton;
             return r;
         }
-        if (x >= chrome.theme_left && x < chrome.theme_left + chrome.theme_w) {
+        if (!ClassicRibbon() && x >= chrome.theme_left && x < chrome.theme_left + chrome.theme_w) {
             r.region = HitTestResult::ThemeToggle;
             return r;
         }
@@ -904,12 +906,19 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         }
         return r;
     }
-    if (!inPeek && x >= EffectiveSidebarWidth(rect.right) && y < title_bar_height_ + toolbar_height_) {
+    if (!inPeek && x >= (ClassicRibbon() ? 0.0f : EffectiveSidebarWidth(rect.right)) && y < title_bar_height_ + toolbar_height_) {
         const auto toolbar = ToolbarLayoutAt(rect.right,
             NewButtonWidthPx(rect.right-EffectiveSidebarWidth(rect.right) < 600 * scale_), vm.pane.filter_expand);
+        if (ClassicRibbon()) {
+            for (int i = 0; i < 4; ++i) if (ContainsPt(toolbar.ribbon_tabs[i], x, y)) {
+                r.region = i == 0 ? HitTestResult::ToolbarMore : HitTestResult::RibbonTab;
+                r.index = i - 1;
+                return r;
+            }
+        }
         const HitTestResult::Region nav[] = {HitTestResult::NavBack, HitTestResult::NavForward,
             HitTestResult::NavUp, HitTestResult::NavRefresh};
-        const bool searchOverlay=vm.address_searching && rect.right-EffectiveSidebarWidth(rect.right)<480*scale_;
+        const bool searchOverlay=!ClassicRibbon() && vm.address_searching && rect.right-EffectiveSidebarWidth(rect.right)<480*scale_;
         if (!searchOverlay)
             for (int i=0; i<4; ++i) if (ContainsPt(toolbar.navigation[i],x,y)) {r.region=nav[i]; return r;}
         // Hit-test the same rect the chrome is drawn in; toolbar.search can be wider,

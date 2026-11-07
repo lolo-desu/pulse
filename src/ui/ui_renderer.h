@@ -125,7 +125,11 @@ public:
         return D2D1::RectF(a.right - 32 * scale_, a.top + 4 * scale_, a.right - 4 * scale_, a.bottom - 4 * scale_);
     }
     FavoritesBarLayout FavoritesBarLayoutAt(const WindowViewModel& vm, float window_width) const;
+    bool ClassicRibbon() const { return !embedded_ && !vertical_tabs_; }
+    int RibbonTab() const { return ribbon_tab_; }
+    void SetRibbonTab(int tab) { ribbon_tab_ = std::clamp(tab, 0, 2); }
     float ToolbarHeightDip() const {
+        if (ClassicRibbon()) return 156.0f + (favorites_bar_ ? kFavoritesBarHeightDip : 0.0f);
         return (vertical_tabs_ || embedded_ ? 44.0f : 88.0f) + (favorites_bar_ ? kFavoritesBarHeightDip : 0.0f);
     }
     // Hosted inside another window (the file picker): no title bar, tabs,
@@ -779,6 +783,7 @@ private:
     TabStripMetrics ComputeTabStrip(const WindowViewModel& vm, float window_w) const;
     void DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme);
     void DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme);
+    void DrawClassicRibbon(const WindowViewModel& vm, const ToolbarLayout& layout, float width, const Theme& theme);
     void DrawFavoritesBar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme);
     void DrawToolbarApps(const WindowViewModel& vm, const ToolbarLayout& layout, const Theme& theme);
     void DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme);
@@ -972,7 +977,8 @@ private:
     float embedded_bottom_dip_ = 0.0f;
     float scale_ = 1.0f;
     float title_bar_height_ = kTitleBarHeight;
-    float toolbar_height_ = 88.0f;
+    float toolbar_height_ = 156.0f;
+    int ribbon_tab_ = 0;
     float status_height_ = 28.0f;
     float sidebar_width_ = 224.0f;
     float sidebar_width_dip_ = 224.0f;
@@ -998,6 +1004,11 @@ private:
     std::vector<AppIconEntry> app_icon_bitmaps_;
     ID2D1DeviceContext* app_icon_dc_ = nullptr;
     ID2D1Bitmap* AppIconBitmap(const common::MenuIconRef& pixels);
+    bool DrawClassicShellIcon(int stock_id, const D2D1_RECT_F& rect, float opacity = 1.0f);
+    bool DrawClassicCommandIcon(const std::wstring& glyph, const D2D1_RECT_F& rect, float opacity = 1.0f,
+                                D2D1_COLOR_F ink = D2D1::ColorF(0xB8B8B8));
+    std::unordered_map<int, ComPtr<ID2D1Bitmap>> classic_icon_bitmaps_;
+    ID2D1DeviceContext* classic_icon_dc_ = nullptr;
     int selection_count_ = 0;
     int selection_actions_ = 0;
     bool sidebar_collapsed_ = false;   // effective: the user's choice or the docked assistant

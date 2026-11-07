@@ -49,8 +49,8 @@ struct AppPrefs {
     bool show_status_performance = false;
     bool show_pinned_tab_names = true;
     // Details list presentation.
-    bool list_smart_date = true;
-    bool list_zebra_rows = true;
+    bool list_smart_date = false;
+    bool list_zebra_rows = false;
     bool list_tree_sticky = true;      // 滚动时固定上级: details tree folders stay pinned
     bool list_size_bar = false;
     // Folders in the list get their size worked out on their own; off, the
@@ -62,14 +62,14 @@ struct AppPrefs {
     // Grid thumbnails: default-program badge, plus playing time on videos.
     bool list_thumbnail_badges = true;
     // 修改时间提示 (ui/mtime_hint.h): 0 off, 1 dots, 2 bars, 3 text only.
-    int list_mtime_hint = 1;
+    int list_mtime_hint = 0;
     int list_mtime_range = 7;         // days: 1, 3, 7, 30
     int list_mtime_palette = 0;       // 0 accent, then 冷暖 / 青碧 / 琥珀 / 极光 / 石墨
     bool list_mtime_fade = true;
     bool list_mtime_tree = true;      // folders follow change tracking's newest change inside
     bool list_mtime_other_views = true;
-    bool list_mtime_bold = true;
-    bool list_mtime_flash = true;
+    bool list_mtime_bold = false;
+    bool list_mtime_flash = false;
     // 鼠标与选择: single-click opens items (0 = double-click), the name band
     // that hints it (0 on hover, 1 always), hover selection, item check boxes.
     bool single_click_open = false;
@@ -80,7 +80,7 @@ struct AppPrefs {
     bool sync_onedrive = true;
     bool sync_svn = true;
     bool vertical_tabs = false;       // tabs as the first sidebar section
-    bool tray_hide_when_empty = false; // staging tray folds away while empty (drags still show it)
+    bool tray_hide_when_empty = true; // staging tray folds away while empty (drags still show it)
     // 网络位置 (Settings → 文件操作): machine-local, not in settings export.
     bool lan_discovery = true;           // look for LAN devices when the network page opens
     bool network_recent_enabled = true;  // remember and list 最近访问
@@ -154,22 +154,22 @@ struct AppPrefs {
     bool change_tracking_enabled = false;
     int change_tracking_days = 7;
     // system / zh-CN / en-US
-    int theme_mode = -1; // legacy session theme, or 0 system / 1 light / 2 dark
+    int theme_mode = 2; // legacy session theme, or 0 system / 1 light / 2 dark
     std::wstring language = L"system";
     // none / acrylic-material / mica / mica-alt  (legacy dwm-blur → acrylic)
-    std::wstring window_effect = L"mica-alt";
+    std::wstring window_effect = L"none";
     // Menus blur the window under them (WinUI in-app acrylic); see FluentMenu.
-    bool menu_acrylic = true;
+    bool menu_acrylic = false;
     std::wstring background_image;
     // Interface transparency 0..90 (json panel_transparency). 25/50/75 match the
     // former subtle/balanced/vivid levels; applies to image, Acrylic and Mica.
-    int wallpaper_look = 50;
+    int wallpaper_look = 0;
     int wallpaper_blur = 14; // wallpaper blur in DIPs 0..40 (json wallpaper_blur_px)
     // 侧边栏与标题栏 0..100 under Acrylic / Mica (json frame_transparency):
     // 0 solid, 10 the look from before the setting, 100 the material itself.
-    int frame_transparency = 10;
-    int row_height = 34; // file-list row height in DIPs (24..48)
-    int sidebar_width = 224; // DIPs
+    int frame_transparency = 0;
+    int row_height = 24; // file-list row height in DIPs (24..48)
+    int sidebar_width = 180; // DIPs
     bool address_search_current = false;
     bool address_search_content = false;
     // Unscoped content searches (content_scope_mode.h): 0 not chosen yet, which
@@ -178,9 +178,9 @@ struct AppPrefs {
     int content_scope = 0;
     int tray_icon_size = 48; // staging-tray deck icon edge in DIPs (32..64)
     // Interaction hints: status-bar context hints + one-time teaching tips.
-    bool show_hints = true;
+    bool show_hints = false;
     // Background update checks and their "update available" toasts (Settings > About).
-    bool auto_check_updates = true;
+    bool auto_check_updates = false;
     uint32_t tips_seen = 0; // bit per app::TeachTip already shown or dismissed
     // 自定义工具栏 (toolbar redesign note 5): the New button's main part makes
     // 0 a folder, 1 the type made last (toolbar_last_new: 0 folder, 1 text

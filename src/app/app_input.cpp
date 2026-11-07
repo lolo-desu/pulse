@@ -3094,7 +3094,7 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
         // Picker T3c: with 自定义工具栏 open, a toolbar pin can be dragged (or
         // clicked); a press anywhere else closes the picker first.
         if (ui::ToolbarPickerOpen()) {
-            if (hit.region == ui::HitTestResult::ToolbarPin) {
+            if (!s->renderer.ClassicRibbon() && hit.region == ui::HitTestResult::ToolbarPin) {
                 BeginToolbarPinDrag(*s, hit.index, POINT{mx, my});
                 return 0;
             }
@@ -3909,8 +3909,11 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             if (hit.region == ui::HitTestResult::ToolbarSort) ShowSortDropdown(*s);
             else if (hit.region == ui::HitTestResult::ToolbarGroup) ShowGroupDropdown(*s);
             else SetGroupBy(*s, 0);
-        } else if (hit.region == ui::HitTestResult::ToolbarMore) {
-            ShowToolbarMore(*s);
+        } else if (hit.region == ui::HitTestResult::ToolbarMore || hit.region == ui::HitTestResult::RibbonTab) {
+            if (hit.region == ui::HitTestResult::RibbonTab) {
+                s->renderer.SetRibbonTab(hit.index);
+                InvalidateRect(s->hwnd, nullptr, FALSE);
+            } else ShowToolbarMore(*s);
         } else if (hit.region == ui::HitTestResult::PaneViewButton) {
             ShowViewDropdown(*s, hit.pane_index);
         } else if (hit.region == ui::HitTestResult::FilterBox) {
@@ -4871,6 +4874,8 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             return 0;
         }
         if (HandleFavoritesBarContextMenu(*s, hit, sp)) return 0;   // 收藏栏
+        if (s->renderer.ClassicRibbon() && (hit.region == ui::HitTestResult::ToolbarPin ||
+            hit.region == ui::HitTestResult::ToolbarMore)) { ShowToolbarMore(*s); return 0; }
         // A pinned tool: separators, remove, 自定义工具栏 (the preview pin and
         // the apps fall through to the popover).
         if (hit.region == ui::HitTestResult::ToolbarPin && hit.index >= 0 && !ui::ToolbarPickerOpen() &&

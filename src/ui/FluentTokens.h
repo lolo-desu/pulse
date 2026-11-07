@@ -1,4 +1,4 @@
-// FluentTokens.h — Win11 Fluent design tokens (ui.md §3).
+// Shared UI tokens, including the classic Explorer dark palette.
 // Dark / light / high-contrast instances; runtime switches by pointer.
 #pragma once
 #include <d2d1_3.h>
@@ -109,7 +109,7 @@ inline D2D1_COLOR_F AutoAccentText(D2D1_COLOR_F accent) noexcept {
 }
 
 // Layout metrics in DIPs at 100% scale. Scaled at use (SetScale, etc.).
-inline constexpr float kTitleBarHeight = 48.0f;
+inline constexpr float kTitleBarHeight = 32.0f;
 
 // ---------------------------------------------------------------------------
 // Resolved runtime theme (colors already premultiplied by desired alpha).
@@ -173,9 +173,9 @@ struct Theme {
     D2D1_COLOR_F fps_text;
 
     // Geometric tokens (DIPs at 100% scale).
-    float radius_window = 12.0f;
-    float radius_flyout = 12.0f;
-    float radius_control = 8.0f;
+    float radius_window = 0.0f;
+    float radius_flyout = 0.0f;
+    float radius_control = 0.0f;
     float spacing_unit = 4.0f;
     float row_list = 28.0f;
     float row_header = 32.0f;
@@ -294,8 +294,10 @@ inline D2D1_COLOR_F ColorFromRef(COLORREF color) noexcept {
 inline void UpdateWindowTheme(HWND hwnd, bool dark) noexcept {
     BOOL darkValue = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkValue, sizeof(darkValue));
-    const COLORREF border = DWMWA_COLOR_NONE;
+    const COLORREF border = dark ? RGB(72, 72, 72) : DWMWA_COLOR_NONE;
     DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &border, sizeof(border));
+    const DWORD corner = dark ? DWMWCP_DONOTROUND : DWMWCP_DEFAULT;
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner, sizeof(corner));
 }
 
 inline Theme MakeTheme(bool dark, D2D1_COLOR_F accent) noexcept {
@@ -310,45 +312,47 @@ inline Theme MakeTheme(bool dark, D2D1_COLOR_F accent) noexcept {
     t.danger_hover = WithAlpha(HexColor(0xC42B1C), 0.85f);
 
     if (dark) {
-        t.bg = HexColor(0x1A1A1A);
-        t.text = HexColor(0xFFFFFF);
-        t.text_secondary = WithAlpha(HexColor(0xFFFFFF), 0.6063f);
-        t.text_disabled = WithAlpha(HexColor(0xFFFFFF), 0.40f);
+        t.radius_window = 0.0f;
+        t.radius_flyout = 0.0f;
+        t.radius_control = 0.0f;
+        t.focus_ring = 1.0f;
+        t.bg = HexColor(0x202020);
+        t.text = HexColor(0xF0F0F0);
+        t.text_secondary = HexColor(0xC0C0C0);
+        t.text_disabled = HexColor(0x808080);
 
-        t.fill_hover = WithAlpha(HexColor(0xFFFFFF), 0.08f);
-        t.fill_pressed = WithAlpha(HexColor(0xFFFFFF), 0.06f);
-        t.fill_selected = WithAlpha(accent, 0.15f);
-        t.fill_selected_inactive = WithAlpha(HexColor(0xFFFFFF), 0.08f);
-        // Lightened first: a dark or saturated accent at a plain alpha came out
-        // darker than the white hover wash, so selected rows blended in (#78).
-        const D2D1_COLOR_F lifted = MixColor(accent, HexColor(0xFFFFFF), 0.25f);
-        t.list_selected_start = WithAlpha(lifted, 0.45f);
-        t.list_selected_end = WithAlpha(lifted, 0.12f);
-        t.list_selected_outline = MixColor(accent, HexColor(0xFFFFFF), 0.35f);
-        t.fill_input = WithAlpha(HexColor(0xFFFFFF), 0.0605f);
-        t.fill_input_hover = WithAlpha(HexColor(0xFFFFFF), 0.0837f);
+        t.fill_hover = HexColor(0x383838);
+        t.fill_pressed = HexColor(0x454545);
+        t.fill_selected = HexColor(0x0067C0);
+        t.fill_selected_inactive = HexColor(0x454545);
+        // Classic Explorer uses a solid blue selection across the entire row.
+        t.list_selected_start = t.fill_selected;
+        t.list_selected_end = t.fill_selected;
+        t.list_selected_outline = HexColor(0x409EFF);
+        t.fill_input = HexColor(0x202020);
+        t.fill_input_hover = HexColor(0x292929);
         t.fill_input_focus = HexColor(0x1E1E1E);
-        t.fill_input_disabled = WithAlpha(HexColor(0xFFFFFF), 0.0419f);
+        t.fill_input_disabled = HexColor(0x252525);
 
-        t.stroke_card = WithAlpha(HexColor(0xFFFFFF), 0.045f);
-        t.stroke_divider = WithAlpha(HexColor(0xFFFFFF), 0.06f);
-        t.stroke_input_bottom = WithAlpha(HexColor(0xFFFFFF), 0.5442f);
+        t.stroke_card = HexColor(0x555555);
+        t.stroke_divider = HexColor(0x484848);
+        t.stroke_input_bottom = HexColor(0x777777);
 
         t.surface_flyout = HexColor(0x2B2B2B);
-        t.surface_title = HexColor(0x1A1A1A);
+        t.surface_title = HexColor(0x000000);
         t.surface_sheet = HexColor(0x202020);
-        t.surface_card = HexColor(0x272727);
+        t.surface_card = HexColor(0x202020);
         t.surface_pane_inactive = WithAlpha(HexColor(0xFFFFFF), 0.72f);
 
-        t.header_bg = HexColor(0x1E1E1E);
-        t.header_sep = WithAlpha(HexColor(0xFFFFFF), 0.08f);
+        t.header_bg = HexColor(0x202020);
+        t.header_sep = t.stroke_divider;
         t.hover_bg = t.fill_hover;
         t.selection_bg = t.fill_selected;
-        t.scrollbar_thumb = WithAlpha(HexColor(0xFFFFFF), 0.35f);
-        t.tab_bg = HexColor(0x1E1E1E);
-        t.tab_active_bg = HexColor(0x2C2C2C);
+        t.scrollbar_thumb = HexColor(0x747474);
+        t.tab_bg = t.surface_title;
+        t.tab_active_bg = t.surface_sheet;
         t.address_bg = HexColor(0x202020);
-        t.status_bg = HexColor(0x151515);
+        t.status_bg = HexColor(0x202020);
         t.icon_folder = HexColor(0xFFCD70);
         t.icon_file = HexColor(0x78B0E8);
         t.fps_bg = WithAlpha(HexColor(0x000000), 0.60f);

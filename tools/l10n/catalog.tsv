@@ -4426,3 +4426,12 @@ OpAuthTitleMove	IDS_OP_AUTH_TITLE_MOVE	5626	移动到这里需要管理员权限
 OpAuthTitleDelete	IDS_OP_AUTH_TITLE_DELETE	5627	删除这些项目需要管理员权限	Deleting these items needs administrator permission	刪除這些項目需要系統管理員權限
 OpAuthNotGrantedShort	IDS_OP_AUTH_NOT_GRANTED_SHORT	5628	没有获得管理员权限。	Administrator permission wasn't granted.	沒有取得系統管理員權限。
 OpAuthorizationOnce	IDS_OP_AUTHORIZATION_ONCE	5629	确认一次即可，本次操作的其余项目不会再问。	You only need to approve once; the rest of this operation won't ask again.	確認一次即可，本次操作的其餘項目不會再詢問。
+RibbonFile	IDS_RIBBONFILE	5630	文件	File	檔案
+RibbonHome	IDS_RIBBONHOME	5631	主页	Home	常用
+RibbonShare	IDS_RIBBONSHARE	5632	共享	Share	共用
+RibbonView	IDS_RIBBONVIEW	5633	查看	View	檢視
+RibbonNew	IDS_RIBBONNEW	5634	新建	New	新增
+RibbonClipboard	IDS_RIBBONCLIPBOARD	5635	剪贴板	Clipboard	剪貼簿
+RibbonOrganize	IDS_RIBBONORGANIZE	5636	组织	Organize	組織
+RibbonSelection	IDS_RIBBONSELECTION	5637	选择	Selection	選取
+RibbonTools	IDS_RIBBONTOOLS	5638	工具	Tools	工具

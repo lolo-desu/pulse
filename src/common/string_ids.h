@@ -4419,5 +4419,14 @@
 #define IDS_OP_AUTH_TITLE_DELETE                                                         5627
 #define IDS_OP_AUTH_NOT_GRANTED_SHORT                                                    5628
 #define IDS_OP_AUTHORIZATION_ONCE                                                        5629
+#define IDS_RIBBONFILE                                                                   5630
+#define IDS_RIBBONHOME                                                                   5631
+#define IDS_RIBBONSHARE                                                                  5632
+#define IDS_RIBBONVIEW                                                                   5633
+#define IDS_RIBBONNEW                                                                    5634
+#define IDS_RIBBONCLIPBOARD                                                              5635
+#define IDS_RIBBONORGANIZE                                                               5636
+#define IDS_RIBBONSELECTION                                                              5637
+#define IDS_RIBBONTOOLS                                                                  5638
 
 #endif  // PULSE_STRING_IDS_H

@@ -4288,6 +4288,30 @@ void ShowToolbarMore(AppState& s) {
     // The toolbar as drawn: an open filter folds pins in here too.
     const auto layout=s.renderer.ToolbarLayoutAt(width,s.renderer.NewButtonWidthPx(width-left < 600*s.scale),
                                                  s.pane ? s.pane->filter_expand : 0.0f);
+    if (s.renderer.ClassicRibbon()) {
+        std::vector<ui::FluentMenuItem> items;
+        ui::FluentMenuItem create;
+        create.command = app::CmdNewFolder;
+        create.text = l10n::Get(l10n::StringId::NewFolder);
+        create.glyph = L"\xE8F4";
+        create.enabled = CanCreateHere(tab);
+        create.separator_after = true;
+        items.push_back(std::move(create));
+        for (const auto& pin : ToolbarPinActions(s)) {
+            ui::FluentMenuItem item;
+            item.command = pin.command; item.text = pin.label; item.glyph = pin.glyph;
+            item.enabled = pin.enabled; item.checked = pin.checked;
+            if (pin.glyph == ui::kToolbarSplitGlyph) {
+                item.command = app::CmdNone; item.children = app::BuildSplitMenu(static_cast<int>(LayoutOf(s)));
+            }
+            items.push_back(std::move(item));
+        }
+        POINT anchor{0, static_cast<LONG>(s.renderer.TitleBarHeight() + 24 * s.scale)};
+        ClientToScreen(s.hwnd, &anchor);
+        const int cmd = s.menu->TrackPopup(anchor, items);
+        if (cmd != app::CmdNone) DispatchMenuCommand(s, cmd);
+        return;
+    }
     // The customize button (T5, in place of More): pins without room on the
     // toolbar (all of them in the narrow tier) come first, in a menu that
     // ends in 自定义工具栏…; with none folded it opens the popover directly.
@@ -4469,11 +4493,18 @@ void PushToolbarPinDrag(AppState& s) {
 std::vector<ui::SelectionChipAction> ToolbarPinActions(AppState& s) {
     std::vector<ui::SelectionChipAction> out;
     const app::Tab* tab = ActiveTab(s);
-    if ((s.appPrefs.toolbar_tools.empty() && g_toolbar_preview < 0) || !tab) return out;
+    if ((!s.renderer.ClassicRibbon() && s.appPrefs.toolbar_tools.empty() && g_toolbar_preview < 0) || !tab) return out;
     const bool has_selection = tab->SelectedCount() > 0;
     app::SelectionCaps caps{};
     bool caps_known = false;
     std::vector<std::wstring> ids = s.appPrefs.toolbar_tools;
+    if (s.renderer.ClassicRibbon()) {
+        switch (s.renderer.RibbonTab()) {
+        case 1: ids = {L"zip", L"copy_path", L"properties", L"terminal", L"map_drive", L"settings"}; break;
+        case 2: ids = {L"details", L"columns", L"split", L"hidden", L"extensions", L"compact", L"sidebar", L"theme", L"settings"}; break;
+        default: ids = {L"copy", L"paste", L"cut", L"rename", L"delete", L"properties", L"select_all", L"invert", L"undo"}; break;
+        }
+    }
     if (g_toolbar_preview >= 0 && static_cast<size_t>(g_toolbar_preview) < app::kToolbarToolCount &&
         !ToolbarToolPinned(s, app::kToolbarToolIds[g_toolbar_preview]))
         ids.emplace_back(app::kToolbarToolIds[g_toolbar_preview]);

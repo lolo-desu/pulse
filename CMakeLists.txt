@@ -555,7 +555,7 @@ if(PULSE_APP_SOURCES)
         # Only app_main.cpp dispatches to the hooks; scoping the define to it
         # keeps a toggle from rebuilding every pulse object.
         set_source_files_properties(src/app/app_main.cpp PROPERTIES COMPILE_DEFINITIONS PULSE_WITH_TEST_HOOKS=1)
-        target_sources(pulse PRIVATE src/bench/file_picker_dialog_test.cpp src/bench/file_picker_operations_test.cpp)
+        target_sources(pulse PRIVATE src/bench/file_picker_dialog_test.cpp src/bench/file_picker_operations_test.cpp src/bench/classic_ribbon_probe.cpp)
     endif()
     # Settings pages, editors and dialogs are not on a hot path: build them
     # for size (/Os /Oi- is /O1 without the D9025 clash with /O2). Listing,
@@ -2155,3 +2155,5 @@ endforeach()
 
 add_executable(pulse_support_report_test src/bench/support_report_test.cpp)
 target_link_libraries(pulse_support_report_test PRIVATE pulse_crash_reporter)
+# Geometry regression for the classic ribbon, independent of the full app.
+add_executable(pulse_classic_ribbon_layout_test src/bench/classic_ribbon_layout_test.cpp)

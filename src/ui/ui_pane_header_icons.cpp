@@ -8,6 +8,31 @@ void MainRenderer::DrawPaneHeaderIcon(const D2D1_RECT_F& rc, PaneHeaderIcon icon
                                       const D2D1_COLOR_F& color) {
     auto* dc = compositor_ ? compositor_->Dc() : nullptr;
     if (!dc) return;
+    if (icon == PaneHeaderIcon::View || icon == PaneHeaderIcon::MediumIcons || icon == PaneHeaderIcon::Wall) {
+        MakeBrush(dc, color, brText_);
+        const float s = scale_;
+        const float x = std::round((rc.left + rc.right - 16.0f * s) * 0.5f);
+        const float y = std::round((rc.top + rc.bottom - 16.0f * s) * 0.5f);
+        auto box = [&](float left, float top, float right, float bottom) {
+            dc->FillRectangle(D2D1::RectF(x + left * s, y + top * s,
+                x + right * s, y + bottom * s), brText_.get());
+        };
+        if (icon == PaneHeaderIcon::View) {
+            for (float row : {2.0f, 7.0f, 12.0f}) {
+                box(0, row, 3, row + 3);
+                box(5, row, 10, row + 1);
+                box(12, row, 16, row + 1);
+                box(5, row + 2, 16, row + 3);
+            }
+        } else if (icon == PaneHeaderIcon::MediumIcons) {
+            for (float row : {1.0f, 9.0f})
+                for (float col : {1.0f, 9.0f}) box(col, row, col + 6, row + 6);
+        } else {
+            box(0, 1, 9, 7); box(11, 1, 16, 7);
+            box(0, 9, 5, 15); box(7, 9, 16, 15);
+        }
+        return;
+    }
     if (!paneHeaderStroke_.get()) command_icons::CreateStrokeStyle(dc, &paneHeaderStroke_);
     using I = command_icons::Icon;
     I command = I::None;

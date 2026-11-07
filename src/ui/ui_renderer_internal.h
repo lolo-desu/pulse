@@ -478,13 +478,13 @@ void ClearTextWidthCache() {
 
     struct SidebarMetrics {
         float scale = 1.0f;
-        float pad = 8.0f;
-        float headerH = 36.0f;
-        float itemH = 32.0f;
-        float driveH = 48.0f;
-        float tagH = 26.0f;
-        float itemGap = 2.0f;
-        float groupGap = 16.0f;
+        float pad = 4.0f;
+        float headerH = 24.0f;
+        float itemH = 24.0f;
+        float driveH = 40.0f;
+        float tagH = 24.0f;
+        float itemGap = 0.0f;
+        float groupGap = 8.0f;
         float trayInner = 8.0f;
         float trayHeaderH = 22.0f;
         float trayHelperH = 28.0f;
@@ -496,13 +496,13 @@ void ClearTextWidthCache() {
     SidebarMetrics MakeSidebarMetrics(float scale) {
         SidebarMetrics m;
         m.scale = scale;
-        m.pad = 8.0f * scale;
-        m.headerH = 36.0f * scale;
-        m.itemH = 32.0f * scale;
-        m.driveH = 48.0f * scale;
-        m.tagH = 26.0f * scale;
-        m.itemGap = 2.0f * scale;
-        m.groupGap = 16.0f * scale;
+        m.pad = 4.0f * scale;
+        m.headerH = 24.0f * scale;
+        m.itemH = 24.0f * scale;
+        m.driveH = 40.0f * scale;
+        m.tagH = 24.0f * scale;
+        m.itemGap = 0.0f * scale;
+        m.groupGap = 8.0f * scale;
         m.trayInner = 8.0f * scale;
         m.trayHeaderH = 22.0f * scale;
         m.trayHelperH = 28.0f * scale;
@@ -932,6 +932,24 @@ void ClearTextWidthCache() {
                 ++shown;
             }
             g.pick = D2D1::RectF(x, y3, x + pick_w, y3 + 26.0f * s);
+            if (inner < 210.0f) {
+                // A sidebar shelf needs full text/action rows; secondary commands
+                // share the last row instead of squeezing the primary action.
+                g.fan = D2D1::RectF(L, y1 + 6.0f * s, L + 16.0f * s, y1 + 22.0f * s);
+                g.expand = D2D1::RectF(R - 28.0f * s, y1, R, y1 + 28.0f * s);
+                g.meta = D2D1::RectF(L, y1, R, y1 + 44.0f * s);
+                g.split = D2D1::RectF(L, y2, R, y2 + 34.0f * s);
+                g.dd = D2D1::RectF(R - 30.0f * s, y2, R, y2 + 34.0f * s);
+                g.go = D2D1::RectF(L, y2, g.dd.left, y2 + 34.0f * s);
+                const float step = (R - L - 28.0f * s) / 3.0f;
+                g.zip = D2D1::RectF(L, y3, L + 28.0f * s, y3 + 28.0f * s);
+                g.rename = D2D1::RectF(L + step, y3, L + step + 28.0f * s, y3 + 28.0f * s);
+                g.pick = D2D1::RectF(L + 2.0f * step, y3, L + 2.0f * step + 28.0f * s, y3 + 28.0f * s);
+                g.more = D2D1::RectF(R - 28.0f * s, y3, R, y3 + 28.0f * s);
+                g.send_label = {};
+                g.chips.clear();
+                g.chip_dest.clear();
+            }
         }
         return g;
     }

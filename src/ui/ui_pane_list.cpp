@@ -380,21 +380,22 @@ D2D1_RECT_F MainRenderer::PaneViewButtonRect(const D2D1_RECT_F& pane_bounds,
                                               float filter_expand) const {
     (void)filter_expand;
     const float right = pane_bounds.right - 8*scale_;
-    return D2D1::RectF(right-kCommandIconButtonDip*scale_,pane_bounds.top+4*scale_,
-        right,pane_bounds.top+pane_header_height_-4*scale_);
+    const float top = pane_bounds.top + (pane_header_height_ - 30.0f * scale_) * 0.5f;
+    return D2D1::RectF(right - 30.0f * scale_, top, right, top + 30.0f * scale_);
 }
 
 D2D1_RECT_F MainRenderer::PaneMediumIconsRect(const D2D1_RECT_F& pane_bounds,
                                                float filter_expand, bool wall) const {
     const D2D1_RECT_F view = PaneViewButtonRect(pane_bounds, filter_expand);
     const D2D1_RECT_F rc = D2D1::RectF(view.left - kCommandIconStepDip * scale_, view.top,
-                                       view.left - (kCommandIconStepDip - kCommandIconButtonDip) * scale_,
+                                       view.left - (kCommandIconStepDip - 30.0f) * scale_,
                                        view.bottom);
-    return wall ? StepLeftHeaderButton(rc, scale_) : rc;
+    return wall ? D2D1::RectF(rc.left - 34.0f * scale_, rc.top, rc.right - 34.0f * scale_, rc.bottom) : rc;
 }
 D2D1_RECT_F MainRenderer::PaneDetailsRect(const D2D1_RECT_F& pane_bounds,
                                                 float filter_expand, bool wall) const {
-    return StepLeftHeaderButton(PaneMediumIconsRect(pane_bounds, filter_expand, wall), scale_);
+    const auto rc = PaneMediumIconsRect(pane_bounds, filter_expand, wall);
+    return D2D1::RectF(rc.left - 34.0f * scale_, rc.top, rc.right - 34.0f * scale_, rc.bottom);
 }
 D2D1_RECT_F MainRenderer::PaneWallRect(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const {
     // Details, icons, photo wall, then the view menu, like the prototype.
@@ -2333,7 +2334,7 @@ void MainRenderer::DrawMorphFrom(const PaneViewModel& vm, const motion::ViewMorp
                          left, avail, DWRITE_TEXT_ALIGNMENT_LEADING);
                     break;
                 case ColumnKind::Type: {
-                    const std::wstring chip = vm.is_changes ? std::wstring() : TypeChipLabel(e.name, e.is_dir);
+                    const std::wstring chip = vm.is_changes || ClassicRibbon() ? std::wstring() : TypeChipLabel(e.name, e.is_dir);
                     const float chipW = TypeChipWidthDip(chip) * scale_;
                     const float shift = !chip.empty() && chipW < avail * 0.6f && !IsHighContrast() ? chipW : 0.0f;
                     draw(e.type_text, left + shift, avail - shift, DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -2798,30 +2799,20 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                 MakeBrush(dc, fill, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), rc.left, rc.top,
                                 rc.right - rc.left, rc.bottom - rc.top,
-                                theme.radius_control * scale_);
+                                0.0f);
             }
             DrawPaneHeaderIcon(rc, icon, !enabled ? theme.text_disabled
                 : (active ? theme.accent : theme.text));
         };
-        // Details, icons and the photo wall share a groove; the selected block
-        // springs between them.
+        // Independent square view buttons keep the selection and spacing clear.
         const bool detailsView = pane.view_mode == ViewMode::Details;
         const bool hasWall = wallRc.right > wallRc.left;
         const bool wallView = hasWall && pane.wall && IsZoomIconMode(pane.view_mode);
         const bool iconView = IsZoomIconMode(pane.view_mode) && !wallView;
-        MakeBrush(dc, WithAlpha(theme.text, 0.05f), brFillHover_);
-        FillRoundedRect(dc, brFillHover_.get(), detailsRc.left - 2.0f * scale_, detailsRc.top,
-                        (hasWall ? wallRc.right : mediumRc.right) - detailsRc.left + 4.0f * scale_,
-                        detailsRc.bottom - detailsRc.top, theme.radius_control * scale_);
         HeaderSizeMotion* headerMotion = pane_index >= 0
             ? &header_size_motion_[static_cast<size_t>(pane_index) % header_size_motion_.size()] : nullptr;
         if (detailsView || iconView || wallView) {
             D2D1_RECT_F block = detailsView ? detailsRc : wallView ? wallRc : mediumRc;
-            if (headerMotion) {
-                block = headerMotion->segment.Update(0, detailsView ? 0 : wallView ? 2 : 1, block, motion_frame_,
-                                                     motion_now_, motion::spring::Snappy);
-                if (headerMotion->segment.Active(motion_now_)) RequestMotionFrame();
-            }
             const HitTestResult::Region selected = detailsView ? HitTestResult::PaneDetails
                                                  : wallView ? HitTestResult::PaneWall
                                                             : HitTestResult::PaneMediumIcons;
@@ -2829,7 +2820,10 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                              vm.hover_control_index == pane_index;
             MakeBrush(dc, WithAlpha(theme.accent, hot ? 0.24f : 0.14f), brFillHover_);
             FillRoundedRect(dc, brFillHover_.get(), block.left, block.top, block.right - block.left,
-                            block.bottom - block.top, theme.radius_control * scale_);
+                            block.bottom - block.top, 0.0f);
+            MakeBrush(dc, theme.accent, brFillHover_);
+            dc->DrawRectangle(D2D1::RectF(block.left + 0.5f, block.top + 0.5f,
+                block.right - 0.5f, block.bottom - 0.5f), brFillHover_.get(), 1.0f);
         } else if (headerMotion) {
             headerMotion->segment.Hide();
         }
@@ -5773,7 +5767,7 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
                         const bool deleted_change = vm.is_changes &&
                             e.type_text == pulse::l10n::Get(pulse::l10n::StringId::ChangeDeleted);
                         float typeLeft = left;
-                        const std::wstring chip = vm.is_changes ? std::wstring() : TypeChipLabel(e.name, e.is_dir);
+                        const std::wstring chip = vm.is_changes || ClassicRibbon() ? std::wstring() : TypeChipLabel(e.name, e.is_dir);
                         const float chipW = TypeChipWidthDip(chip) * scale_;
                         if (!chip.empty() && chipW < avail * 0.6f && !IsHighContrast()) {
                             const float chipBoxW = chipW - kTypeChipGapDip * scale_;

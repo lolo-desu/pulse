@@ -1386,6 +1386,7 @@ struct HitTestResult {
         PaneWall,           // main window panes: the view segment's photo wall button (index = pane)
         ToolbarSort,
         ToolbarMore,
+        RibbonTab,
         ToolbarSelAction,   // selection chip: quick actions, kSelChipMore, kSelChipClear, -1 chip body
         ToolbarPin,         // pinned command or app (自定义工具栏): index into layout.pins
         ToolbarPinLabel,    // drop mode: the label ahead of the pinned apps

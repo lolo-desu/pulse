@@ -12,6 +12,7 @@
 #include <windowsx.h>
 #include <d2d1effects.h>
 #include <shlwapi.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <cmath>
 #include <cwchar>
@@ -21,6 +22,23 @@
 namespace pulse::ui {
 
 namespace {
+
+int ClassicSidebarStockIcon(std::wstring_view glyph) {
+    using command_icons::Icon;
+    switch (command_icons::FromGlyph(glyph)) {
+    case Icon::Desktop: case Icon::Computer: return SIID_DESKTOPPC;
+    case Icon::Download: return SIID_FOLDER;
+    case Icon::File: return SIID_DOCNOASSOC;
+    case Icon::Image: return SIID_IMAGEFILES;
+    case Icon::Video: return SIID_VIDEOFILES;
+    case Icon::Music: return SIID_AUDIOFILES;
+    case Icon::Drive: return SIID_DRIVEFIXED;
+    case Icon::Network: return SIID_WORLD;
+    case Icon::Star: case Icon::StarFilled: return SIID_FOLDER;
+    case Icon::Recycle: case Icon::Delete: return SIID_RECYCLER;
+    default: return SIID_FOLDER;
+    }
+}
 
 // Accent insertion indicator shared by the two sidebar reorders (sections and
 // quick-access pins).
@@ -134,7 +152,7 @@ float ChevronAngle(SidebarMotion& m, const std::wstring& key, bool expanded, uin
 } // namespace
 
 D2D1_RECT_F MainRenderer::SidebarRect(float w, float h) const {
-    float top = title_bar_height_ + margin_;
+    float top = title_bar_height_ + (ClassicRibbon() ? toolbar_height_ : 0.0f) + margin_;
     float bottom = h - status_height_ - margin_;
     const float right = SidebarPeekVisible(w) ? SidebarFullWidth(w) : SidebarOwnWidth(w);
     return D2D1::RectF(0.0f, top, right, bottom);
@@ -187,6 +205,34 @@ void MainRenderer::DrawSidebarPeek(const WindowViewModel& vm, const D2D1_RECT_F&
 
 void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme) {
     ID2D1DeviceContext* dc = compositor_->Dc();
+    const auto classic_icon_rect = [&](D2D1_RECT_F bounds) {
+        const float side = 16.0f * scale_;
+        const float cx = (bounds.left + bounds.right) * 0.5f;
+        const float cy = (bounds.top + bounds.bottom) * 0.5f;
+        return D2D1::RectF(cx - side * 0.5f, cy - side * 0.5f,
+                          cx + side * 0.5f, cy + side * 0.5f);
+    };
+    const auto draw_classic_icon = [&](const std::wstring& path, std::wstring_view glyph,
+                                       const D2D1_RECT_F& bounds) {
+        const auto icon_rc = classic_icon_rect(bounds);
+        std::wstring shell_path = path;
+        const auto icon_kind = command_icons::FromGlyph(glyph);
+        if (glyph == L"\xE8A9" || icon_kind == command_icons::Icon::Star || icon_kind == command_icons::Icon::StarFilled) {
+            DrawClassicCommandIcon(L"\xE735", icon_rc, 1.0f,
+                glyph == L"\xE8A9" ? D2D1::ColorF(0x27A5DE) : D2D1::ColorF(0xD9B457));
+            return;
+        }
+        if (icon_kind == command_icons::Icon::History || icon_kind == command_icons::Icon::Tag) {
+            DrawClassicCommandIcon(icon_kind == command_icons::Icon::History ? L"\xE81C" : L"\xE8EC",
+                                   icon_rc, 1.0f, theme.text_secondary);
+            return;
+        }
+        ID2D1Bitmap* icon = shell_path.empty() || shell_path.starts_with(L"pulse:") ? nullptr
+            : icon_cache_.ExactBitmapFor(shell_path, 16.0f * scale_);
+        if (icon) dc->DrawBitmap(icon, &icon_rc, 1.0f,
+                                D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
+        else DrawClassicShellIcon(ClassicSidebarStockIcon(glyph), icon_rc, 1.0f);
+    };
     D2D1_RECT_F sb = SidebarRect(rect.right, rect.bottom);
     const D2D1_RECT_F sb_clip = sb;
     // Collapse/expand: lay out at the expanded width and reveal it through
@@ -253,7 +299,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
         }
     }
     const bool reordering = vm.sidebar_pin_drag_index >= 0 || vm.sidebar_group_drag_id >= 0;
-    const int pill_slot = !reordering && !IsHighContrast() ? selected_slot : -1;
+    const int pill_slot = !vm.dark && !reordering && !IsHighContrast() ? selected_slot : -1;
     SidebarMotion& sm = SidebarMotionFor(this);
     if (motion_now_ - sm.animations_checked > 2000 || !sm.animations_checked) {
         // The Windows animation switch, re-read every couple of seconds.
@@ -266,7 +312,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
     bool sidebar_moving = false;
     // One hover plate glides between rows (the menus' plate); reorders and
     // high contrast keep each row's own static hover.
-    const bool plate_live = !reordering && !IsHighContrast();
+    const bool plate_live = !vm.dark && !reordering && !IsHighContrast();
     int hover_slot = -1;
     if (plate_live) {
         for (size_t k = 0; k < slots.size(); ++k) {
@@ -319,7 +365,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
     // their own thing, apart from the places below; the active tab's card
     // rises out of it.
     for (int g = 0; g < static_cast<int>(vm.sidebar.size()); ++g) {
-        if (!vm.sidebar[static_cast<size_t>(g)].tabs_section) continue;
+        if (vm.dark || !vm.sidebar[static_cast<size_t>(g)].tabs_section) continue;
         float top = 1e9f, bottom = -1.0f, left = 1e9f, right = -1.0f;
         for (const auto& slot : slots) {
             if (slot.group != g) continue;
@@ -423,7 +469,9 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
                 const D2D1_RECT_F rail_rc = D2D1::RectF(
                     slot.rc.left + rail_pad_x, slot.rc.top + rail_pad_y,
                     slot.rc.right - rail_pad_x, slot.rc.bottom - rail_pad_y);
-                if (IsHighContrast() || rail_svg == 0 || !DrawFluentSvg(rail_svg, rail_rc, 1.0f, nullptr, true)) {
+                if (ClassicRibbon() && !IsHighContrast()) {
+                    draw_classic_icon(group.navigation_path, glyph, rail_rc);
+                } else if (IsHighContrast() || rail_svg == 0 || !DrawFluentSvg(rail_svg, rail_rc, 1.0f, nullptr, true)) {
                     const std::wstring fallback = group.header.empty()
                         ? std::wstring(L"?") : group.header.substr(0, 1);
                     DrawIconText(slot.rc.left, slot.rc.top, slot.rc.right - slot.rc.left,
@@ -548,7 +596,9 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             const float pad_y = (slot.rc.bottom - slot.rc.top - icon) * 0.5f;
             const D2D1_RECT_F icon_rc = D2D1::RectF(slot.rc.left + pad_x, slot.rc.top + pad_y,
                                                     slot.rc.right - pad_x, slot.rc.bottom - pad_y);
-            if (IsHighContrast() || svg_id == 0 ||
+            if (ClassicRibbon() && !IsHighContrast()) {
+                draw_classic_icon(item.icon_path.empty() ? item.path : item.icon_path, item.icon_glyph, icon_rc);
+            } else if (IsHighContrast() || svg_id == 0 ||
                 !DrawFluentSvg(svg_id, icon_rc, 1.0f, nullptr, true)) {
                 DrawIconText(slot.rc.left, slot.rc.top, slot.rc.right - slot.rc.left,
                     slot.rc.bottom - slot.rc.top, item.icon_glyph, item.fallback_text,
@@ -690,7 +740,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             header.glyph = vm.sidebar[slot.group].icon_glyph;
             const int header_svg = FluentSvgIdForGlyph(header.glyph);
             header.skip_glyph =
-                !IsHighContrast() && header_svg != 0 && EnsureFluentSvg(header_svg, true);
+                !IsHighContrast() && (ClassicRibbon() || (header_svg != 0 && EnsureFluentSvg(header_svg, true)));
             // The section being dragged stays lit for the whole gesture.
             const bool header_dragging = vm.sidebar_group_drag_id >= 0 &&
                 vm.sidebar[slot.group].id == vm.sidebar_group_drag_id;
@@ -708,7 +758,9 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
                     6.0f * scale_, theme.fill_hover);
             }
             painter_.DrawSidebarSectionHeader(header);
-            if (header.skip_glyph) {
+            if (ClassicRibbon() && !IsHighContrast()) {
+                draw_classic_icon(group.navigation_path, header.glyph, painter_.SidebarSectionHeaderIconRect(slot.rc));
+            } else if (header.skip_glyph) {
                 DrawFluentSvg(header_svg, painter_.SidebarSectionHeaderIconRect(slot.rc),
                               1.0f, nullptr, true);
             }
@@ -802,7 +854,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             // active tab plate.
             state.selected = false;
             const float r = theme.radius_control * scale_;
-            MakeBrush(dc, vm.dark ? D2D1_COLOR_F{1.0f, 1.0f, 1.0f, 0.10f} : HexColor(0xFFFFFF), brFillSelected_);
+            MakeBrush(dc, vm.dark ? theme.fill_selected : HexColor(0xFFFFFF), brFillSelected_);
             FillRoundedRect(dc, brFillSelected_.get(), slot.rc.left, slot.rc.top,
                 slot.rc.right - slot.rc.left, slot.rc.bottom - slot.rc.top, r);
             MakeBrush(dc, theme.stroke_card, brStrokeCard_);
@@ -810,7 +862,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
                 slot.rc.right - 0.5f, slot.rc.bottom - 0.5f), r, r), brStrokeCard_.get(), 1.0f);
             const float barH = (slot.rc.bottom - slot.rc.top) - 16.0f * scale_;
             MakeBrush(dc, item.tag_dot.a > 0.0f ? item.tag_dot : theme.accent, brAccent_);
-            FillRoundedRect(dc, brAccent_.get(), slot.rc.left + 1.0f * scale_,
+            if (!vm.dark) FillRoundedRect(dc, brAccent_.get(), slot.rc.left + 1.0f * scale_,
                 slot.rc.top + 8.0f * scale_, 3.0f * scale_, barH, 1.5f * scale_);
         } else if (item.tab_row) {
             state.selected = false;
@@ -838,9 +890,11 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             drive.icon_color = item.icon_color;
             if (item.danger) drive.bar_color = theme.danger;
             const int drive_svg = FluentSvgIdForGlyph(item.icon_glyph);
-            drive.skip_glyph = !IsHighContrast() && drive_svg != 0 && EnsureFluentSvg(drive_svg, true);
+            drive.skip_glyph = !IsHighContrast() && (ClassicRibbon() || (drive_svg != 0 && EnsureFluentSvg(drive_svg, true)));
             painter_.DrawDriveSidebarItem(drive);
-            if (drive.skip_glyph) {
+            if (ClassicRibbon() && !IsHighContrast()) {
+                draw_classic_icon(item.path, item.icon_glyph, painter_.DriveSidebarItemIconRect(slot.rc));
+            } else if (drive.skip_glyph) {
                 DrawFluentSvg(drive_svg, painter_.DriveSidebarItemIconRect(slot.rc),
                               1.0f, nullptr, true);
             }
@@ -895,9 +949,9 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             fluent::SidebarItemSpec row;
             row.bounds = slot.rc;
             row.text = item.label;
-            if (item.path == L"pulse:recycle") row.detail = item.detail;
+            if (!ClassicRibbon() && item.path == L"pulse:recycle") row.detail = item.detail;
             row.glyph = item.icon_glyph;
-            row.badge_text = item.badge;
+            row.badge_text = ClassicRibbon() ? std::wstring_view{} : std::wstring_view(item.badge);
             row.badge_color = item.badge_color;
             row.custom_badge_color = !item.badge.empty() && item.badge_color.a > 0.0f;
             row.state = state;
@@ -920,7 +974,7 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
                              !app::AliasStore::Instance().Empty() && app::AliasStore::Instance().ShowMark() &&
                              app::AliasStore::Instance().Shown(item.path) == item.label;
             const int row_svg = item.is_tag ? 0 : FluentSvgIdForGlyph(item.icon_glyph);
-            row.skip_glyph = !IsHighContrast() && row_svg != 0 && EnsureFluentSvg(row_svg, true);
+            row.skip_glyph = !IsHighContrast() && ((ClassicRibbon() && !item.is_tag) || (row_svg != 0 && EnsureFluentSvg(row_svg, true)));
             // 网盘 roots: the program's registered icon, as Explorer's navigation pane.
             const D2D1_RECT_F row_icon_rc = painter_.SidebarItemIconRect(slot.rc, item.status_dot);
             ID2D1Bitmap* row_shell_icon = item.icon_path.empty() || IsHighContrast() ? nullptr
@@ -937,8 +991,20 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
                 row.trailing_reserve = (std::max)(0.0f,
                     (slot.rc.right - (item.bar_switch ? SidebarBarSwitchRect(slot.rc, scale_) : expand_rc).left) -
                     4.0f * scale_);
+            float classic_badge_width = 0.0f;
+            if (ClassicRibbon() && !item.badge.empty() && item.badge != item.label && !item.editing) {
+                classic_badge_width = MeasureTextWidth(compositor_->DwriteFactory(), compositor_->SmallFormat(), item.badge);
+                row.trailing_reserve += classic_badge_width + 12.0f * scale_;
+            }
             painter_.DrawSidebarItem(row);
-            if (row_shell_icon) {
+            if (classic_badge_width > 0.0f) {
+                const float right = slot.rc.right - 10.0f * scale_ - (row.trailing_reserve - classic_badge_width - 12.0f * scale_);
+                painter_.DrawText(item.badge, D2D1::RectF(right - classic_badge_width, slot.rc.top, right, slot.rc.bottom),
+                                  compositor_->SmallFormat(), theme.text_secondary);
+            }
+            if (ClassicRibbon() && !IsHighContrast() && !item.is_tag) {
+                draw_classic_icon(item.icon_path.empty() ? item.path : item.icon_path, item.icon_glyph, row_icon_rc);
+            } else if (row_shell_icon) {
                 dc->DrawBitmap(row_shell_icon, &row_icon_rc, 1.0f,
                                D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
             } else if (row.skip_glyph) {

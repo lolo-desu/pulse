@@ -783,7 +783,7 @@ void Painter::DrawFocusRing(const D2D1_RECT_F& bounds, float radius) {
         return;
     }
     const float width = std::max(1.0f, Px(theme_->focus_ring));
-    StrokeRounded(Inflate(bounds, Px(1.0f)), radius + Px(1.0f), BrushId::Accent, width);
+    StrokeRounded(Inflate(bounds, Px(1.0f)), radius > 0.0f ? radius + Px(1.0f) : 0.0f, BrushId::Accent, width);
 }
 
 void Painter::DrawCommandButton(const ButtonSpec& spec) {
@@ -916,6 +916,15 @@ void Painter::DrawButton(const ButtonSpec& spec) {
                 : state.pressed ? MultiplyAlpha(theme_->text, 0.72f) : theme_->text;
         }
     }
+    if (!high_contrast_ && dark_ && radius == 0.0f) {
+        if (!primary && !danger) {
+            fill = !state.enabled ? theme_->fill_input_disabled
+                : state.pressed ? theme_->fill_pressed
+                : state.hovered ? theme_->fill_hover : theme_->fill_input;
+            border = state.hovered ? theme_->stroke_input_bottom : theme_->stroke_card;
+        }
+        edge = border;
+    }
     if (draw_fill) {
         FillRoundedRect(spec.bounds, radius, fill);
     }
@@ -1011,6 +1020,13 @@ void Painter::DrawTextFieldFrame(const D2D1_RECT_F& bounds, const ControlState& 
         bottom = state.focused ? theme_->accent : theme_->stroke_input_bottom;
     }
 
+    if (!high_contrast_ && dark_ && radius == 0.0f) {
+        border = state.focused && state.enabled ? theme_->accent
+            : state.hovered && state.enabled ? theme_->stroke_input_bottom : theme_->stroke_card;
+        FillRoundedRect(bounds, radius, fill);
+        StrokeRoundedRect(bounds, radius, border);
+        return;
+    }
     FillRoundedRect(bounds, radius, fill);
     StrokeRoundedRect(bounds, radius, border);
 
@@ -1111,7 +1127,7 @@ void Painter::DrawCheckBox(const D2D1_RECT_F& bounds, std::wstring_view text,
     const float indicator = Px(18.0f);
     const float top = bounds.top + (Height(bounds) - indicator) * 0.5f;
     const auto box = D2D1::RectF(bounds.left, top, bounds.left + indicator, top + indicator);
-    const float radius = Px(4.5f);
+    const float radius = Px(std::min(4.5f, theme_->radius_control));
     D2D1_COLOR_F border;
     D2D1_COLOR_F fill;
     D2D1_COLOR_F foreground = state.enabled ? theme_->text : theme_->text_disabled;
@@ -1654,13 +1670,15 @@ void Painter::DrawListRowBackground(const ListRowSpec& spec) {
         return;
     }
     auto row = spec.bounds;
-    row.left += Px(4.0f);
-    row.right -= Px(4.0f);
+    if (theme_->radius_control > 0.0f) {
+        row.left += Px(4.0f);
+        row.right -= Px(4.0f);
+    }
     const float radius = Px(theme_->radius_control);
     if (spec.state.selected) {
         FillRounded(row, radius, BrushId::Selected);
-        FillRoundedAccent(dc_, Brush(BrushId::Accent), row, radius, Px(3.0f),
-                          AccentEdge::Left);
+        if (radius > 0.0f) FillRoundedAccent(dc_, Brush(BrushId::Accent), row, radius, Px(3.0f),
+                                           AccentEdge::Left);
     }
     if (spec.state.hovered) {
         FillRounded(row, radius, spec.state.pressed ? BrushId::Pressed : BrushId::Hover);
@@ -1680,7 +1698,7 @@ void Painter::DrawSidebarItem(const SidebarItemSpec& spec) {
     const float radius = Px(theme_->radius_flyout);
     if (spec.state.selected) {
         FillRoundedRect(spec.bounds, radius,
-                        dark_ ? Rgba(0xFFFFFF, 26) : Rgba(0x000000, 20));
+                        dark_ ? theme_->fill_selected : Rgba(0x000000, 20));
     } else if (spec.state.enabled && (spec.state.hovered || spec.state.pressed)) {
         FillRounded(spec.bounds, radius,
                     spec.state.pressed ? BrushId::Pressed : BrushId::Hover);
@@ -1693,8 +1711,8 @@ void Painter::DrawSidebarItem(const SidebarItemSpec& spec) {
     auto content = spec.bounds;
     content.left += Px(10.0f);
     content.right -= Px(10.0f) + spec.trailing_reserve;
-    content.top += Px(4.0f);
-    content.bottom -= Px(4.0f);
+    content.top += Px(2.0f);
+    content.bottom -= Px(2.0f);
     if (spec.status_dot) {
         const float r = Px(3.0f);
         DrawTagDot(D2D1::Point2F(content.left + r, (content.top + content.bottom) * 0.5f),
@@ -2242,7 +2260,7 @@ void Painter::DrawBadge(const BadgeSpec& spec) {
             break;
         case BadgeKind::Neutral:
         default:
-            background = dark_ ? Rgba(0xFFFFFF, 18) : Rgba(0x000000, 14);
+            background = dark_ ? theme_->fill_selected : Rgba(0x000000, 14);
             foreground = theme_->text_secondary;
             break;
         }
@@ -2308,18 +2326,18 @@ void Painter::DrawTag(const TagSpec& spec) {
         background = WithAlpha(color, 0.13f);
         foreground = shades.dark2;
     }
-    const float radius = std::min(Px(4.0f), Height(spec.bounds) * 0.25f);
-    FillRoundedRect(spec.bounds, radius, background);
-    if (spec.bordered && !high_contrast_) {
-        StrokeRoundedRect(spec.bounds, radius, WithAlpha(color, dark_ ? 0.38f : 0.30f));
+    // Metadata is secondary text, not a button-shaped capsule. Explicitly
+    // bordered tags keep a square frame so their interactive role remains clear.
+    if (spec.bordered) {
+        FillRoundedRect(spec.bounds, 0.0f, background);
+        StrokeRoundedRect(spec.bounds, 0.0f, WithAlpha(color, dark_ ? 0.38f : 0.30f));
     }
     const float pad_x = Px(7.0f);
-    const float pad_y = Px(1.5f);
     DrawText(spec.text,
-             D2D1::RectF(spec.bounds.left + pad_x, spec.bounds.top + pad_y,
-                         spec.bounds.right - pad_x, spec.bounds.bottom - pad_y),
-             CaptionFormat(), foreground, HorizontalAlignment::Center,
-             BlendOver(background, theme_->bg));
+             D2D1::RectF(spec.bounds.left + pad_x, spec.bounds.top,
+                         spec.bounds.right - pad_x, spec.bounds.bottom),
+             CaptionFormat(), foreground, HorizontalAlignment::Center);
+
 }
 
 float Painter::MeasureButtonWidth(std::wstring_view text, std::wstring_view glyph,
@@ -2388,7 +2406,7 @@ D2D1_RECT_F Painter::DrawOmnibarHints(const D2D1_RECT_F& field, bool skip_search
     const float chip_bottom = field.bottom - Px(3.0f);
     const D2D1_RECT_F chip = D2D1::RectF(chip_left, chip_top, chip_right, chip_bottom);
     const D2D1_COLOR_F chip_fill = high_contrast_ ? theme_->fill_input
-        : dark_ ? Rgba(0xFFFFFF, 18) : Rgba(0x000000, 14);
+        : dark_ ? theme_->fill_selected : Rgba(0x000000, 14);
     FillRoundedRect(chip, Height(chip) * 0.5f, chip_fill);
 
     float x = chip_left + Px(8.0f);
@@ -2503,7 +2521,7 @@ void Painter::DrawDriveSidebarItem(const DriveSidebarItemSpec& spec) {
     const float radius = Px(theme_->radius_flyout);
     if (spec.state.selected) {
         FillRoundedRect(spec.bounds, radius,
-                        dark_ ? Rgba(0xFFFFFF, 18) : Rgba(0x000000, 14));
+                        dark_ ? theme_->fill_selected : Rgba(0x000000, 14));
     } else if (spec.state.enabled && (spec.state.hovered || spec.state.pressed)) {
         FillRounded(spec.bounds, radius,
                     spec.state.pressed ? BrushId::Pressed : BrushId::Hover);

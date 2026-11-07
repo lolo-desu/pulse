@@ -54,6 +54,8 @@ void MainRenderer::SetCompositor(Compositor* comp) {
     fluent_bitmaps_.clear();
     fluent_raster_dc_.reset();
     empty_state_svg_dc_.reset();
+    classic_icon_bitmaps_.clear();
+    classic_icon_dc_ = nullptr;
     app_icon_bitmaps_.clear();
     app_icon_dc_ = nullptr;
     ai_panel_.ReleaseDeviceResources();
@@ -169,7 +171,7 @@ float MainRenderer::AiDockWidth(float window_width) const {
 
 D2D1_RECT_F MainRenderer::AiColumnRect(float w, float h) const {
     const float left = SidebarOwnWidth(w);
-    return D2D1::RectF(left, title_bar_height_, left + AiDockWidth(w), h - status_height_);
+    return D2D1::RectF(left, title_bar_height_ + (ClassicRibbon() ? toolbar_height_ : 0.0f), left + AiDockWidth(w), h - status_height_);
 }
 
 D2D1_RECT_F MainRenderer::AiFloatingArea(float w, float h) const {
@@ -306,6 +308,8 @@ ToolbarLayout MainRenderer::ToolbarLayoutAt(float w, float create_width, float f
     pins.drop_mode = pin_drop_mode_ && !embedded_;
     pins.separators = pins.drop_mode ? 0 : pin_separators_;
     pins.label_width = pins.drop_mode ? ToolbarPinLabelWidth() : 0.0f;
+    if (ClassicRibbon())
+        return MakeClassicRibbonLayout(w, scale_, title_bar_height_, pin_count_, pin_app_from_, pins.drop_mode, filter_expand);
     if (!vertical_tabs_)
         return MakeToolbarLayout(w, scale_, title_bar_height_, margin_, create_width, left, filter_expand,
                                  search_hidden_ ? -1.0f : search_min_dip_, group_width, sort_width, filter_width, pin_count_,
@@ -354,6 +358,7 @@ ID2D1Bitmap* MainRenderer::AppIconBitmap(const common::MenuIconRef& pixels) {
 }
 
 D2D1_RECT_F MainRenderer::SidebarToggleRect(float w) const {
+    if (ClassicRibbon()) return {};
     if (w / scale_ < kSidebarRailWindowDip) return {};
     const float size = 32.0f * scale_;
     const float top = (title_bar_height_ - size) * 0.5f;
@@ -372,6 +377,7 @@ D2D1_RECT_F MainRenderer::SidebarToggleRect(float w) const {
 // stands in for the mark.
 MainRenderer::WindowIdentityGeometry MainRenderer::WindowIdentityLayout(const WindowViewModel& vm, float w) const {
     WindowIdentityGeometry g;
+    if (ClassicRibbon()) return g;
     if (!vm.window_identity || vm.window_identity_name.empty() || !compositor_) return g;
     const D2D1_RECT_F toggle = SidebarToggleRect(w);
     const bool has_toggle = toggle.right > toggle.left;
@@ -409,14 +415,14 @@ MainRenderer::WindowIdentityGeometry MainRenderer::WindowIdentityLayout(const Wi
 }
 
 D2D1_RECT_F MainRenderer::ToolbarRect(float w) const {
-    return D2D1::RectF(EffectiveSidebarWidth(w), title_bar_height_, w, title_bar_height_ + toolbar_height_);
+    return D2D1::RectF(ClassicRibbon() ? 0.0f : EffectiveSidebarWidth(w), title_bar_height_, w, title_bar_height_ + toolbar_height_);
 }
 
 D2D1_RECT_F MainRenderer::AddressBarRect(float w) const {
     return ToolbarLayoutAt(w,NewButtonWidthPx(w-EffectiveSidebarWidth(w)<600*scale_)).address;
 }
 D2D1_RECT_F MainRenderer::SearchBarRect(float w) const {
-    if (!search_hidden_ && w-EffectiveSidebarWidth(w)<480*scale_) {
+    if (!ClassicRibbon() && !search_hidden_ && w-EffectiveSidebarWidth(w)<480*scale_) {
         const auto lay = ToolbarLayoutAt(w, NewButtonWidthPx(true));
         return D2D1::RectF(EffectiveSidebarWidth(w)+margin_, lay.address.top, lay.search.right, lay.address.bottom);
     }
@@ -961,6 +967,12 @@ void MainRenderer::DrawIconText(float x, float y, float w, float h,
     const std::wstring& glyph, const std::wstring& fallback,
     const D2D1_COLOR_F& color, float size_factor) {
     ID2D1DeviceContext* dc = compositor_->Dc();
+    if (ClassicRibbon() && glyph == kIconFolder) {
+        const float side = std::min({16.0f * scale_, w, h});
+        const D2D1_RECT_F icon{std::round(x + (w - side) / 2), std::round(y + (h - side) / 2),
+                              std::round(x + (w - side) / 2) + side, std::round(y + (h - side) / 2) + side};
+        if (DrawClassicShellIcon(3, icon)) return;
+    }
     const auto command = command_icons::FromGlyph(glyph);
     if (command != command_icons::Icon::None) {
         if (!paneHeaderStroke_.get()) command_icons::CreateStrokeStyle(dc, &paneHeaderStroke_);
@@ -1511,94 +1523,96 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
 
     // Product mark: the packaged app icon; the monogram is the fallback.
     float x = 12.0f * scale_;
-    const float mark = 24.0f * scale_;
-    const float markY = (h - mark) * 0.5f;
-    const D2D1_RECT_F toggleRc = SidebarToggleRect(right);
-    const bool hasToggle = toggleRc.right > toggleRc.left;
-    if (hasToggle) {
-        DrawButton(toggleRc, theme,
-            IsHovered(vm, HitTestResult::SidebarToggle) ? theme.fill_hover : kTransparent,
-            L"", L"", theme.text_secondary, true, true);
-        const float cx = (toggleRc.left + toggleRc.right) * 0.5f;
-        const float cy = (toggleRc.top + toggleRc.bottom) * 0.5f;
-        const float stroke = 1.25f * scale_;
-        const auto frame = D2D1::RectF(cx - 7.5f * scale_, cy - 6.5f * scale_,
-                                     cx + 7.5f * scale_, cy + 6.5f * scale_);
-        MakeBrush(dc, theme.text_secondary, brTextSecondary_);
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(frame, 2.75f * scale_, 2.75f * scale_),
-                                 brTextSecondary_.get(), stroke);
-        const bool expanded = !user_sidebar_collapsed_ || SidebarPeekVisible(right);
-        const float divider = frame.left + (expanded ? 5.0f : 3.75f) * scale_;
-        const float inset = expanded ? 0.0f : 3.25f * scale_;
-        dc->DrawLine({divider, frame.top + inset}, {divider, frame.bottom - inset},
-                     brTextSecondary_.get(), stroke);
-        if (!expanded) {
-            for (float edge : {frame.top + inset, frame.bottom - inset})
-                dc->FillEllipse(D2D1::Ellipse({divider, edge}, stroke * 0.5f, stroke * 0.5f),
-                                brTextSecondary_.get());
-        }
-    }
-    if (hasToggle && user_sidebar_collapsed_) {
-        // Rail: the toggle stands in for the brand mark.
-    } else if (ID2D1Bitmap* logo = LogoBitmap()) {
-        dc->DrawBitmap(logo, D2D1::RectF(x, markY, x + mark, markY + mark), 1.0f,
-                       D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
-    } else {
-        MakeBrush(dc, theme.accent, brAccent_);
-        dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x + mark * 0.5f, markY + mark * 0.5f),
-                                      mark * 0.5f, mark * 0.5f), brAccent_.get());
-        ComPtr<IDWriteTextFormat> markFmt;
-        typography::CreateTextFormat(compositor_->DwriteFactory(),
-            {typography::FontRole::Display, 11.0f * scale_, DWRITE_FONT_WEIGHT_SEMI_BOLD},
-            &markFmt);
-        if (markFmt.get()) {
-            markFmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-            markFmt->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            MakeBrush(dc, theme.accent_text, brAccentText_);
-            DrawTextRect(dc, markFmt.get(), brAccentText_.get(), L"P", x, markY, mark, mark);
-        }
-    }
-    x += mark + 8.0f * scale_;
-    const float brandRight = TitleSidebarWidth(right) - 12.0f * scale_;
-    const float nameWidth = MeasureLayoutText(compositor_, compositor_->DwriteFactory(),
-        compositor_->HeaderFormat(), L"Pulse");
-    const WindowIdentityGeometry identity = WindowIdentityLayout(vm, right);
-    if (identity.hit.right > identity.hit.left && !identity.compact) {
-        // Multi-window M7c: this window's dot and name instead of the product name.
-        if (IsHovered(vm, HitTestResult::WindowIdentity)) {
-            MakeBrush(dc, theme.fill_hover, brFillHover_);
-            const float radius = theme.radius_control * scale_;
-            dc->FillRoundedRectangle(D2D1::RoundedRect(identity.hit, radius, radius), brFillHover_.get());
-        }
-        MakeBrush(dc, HexColor(vm.window_identity_rgb), brAccent_);
-        dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius, identity.dot_radius), brAccent_.get());
-        const float text_x = identity.hit.left + 22.0f * scale_;
-        MakeBrush(dc, theme.text, brText_);
-        DrawTextEndEllipsis(compositor_, compositor_->HeaderFormat(), brText_.get(),
-                            vm.window_identity_name, text_x, 0.0f, identity.hit.right - 6.0f * scale_ - text_x, h);
-    } else if (x + nameWidth <= brandRight) {
-        MakeBrush(dc, theme.text, brText_);
-        DrawTextRect(dc, compositor_->HeaderFormat(), brText_.get(), L"Pulse",
-            x, 0.0f, nameWidth + 1.0f * scale_, h);
-        x += nameWidth + 12.0f * scale_;
-        const auto description = l10n::Get(l10n::StringId::AppDescription);
-        const float descriptionWidth = MeasureLayoutText(compositor_, compositor_->DwriteFactory(),
-            compositor_->SmallFormat(), description);
-        if (x + descriptionWidth <= brandRight) {
+    if (!ClassicRibbon()) {
+        const float mark = 24.0f * scale_;
+        const float markY = (h - mark) * 0.5f;
+        const D2D1_RECT_F toggleRc = SidebarToggleRect(right);
+        const bool hasToggle = toggleRc.right > toggleRc.left;
+        if (hasToggle) {
+            DrawButton(toggleRc, theme,
+                IsHovered(vm, HitTestResult::SidebarToggle) ? theme.fill_hover : kTransparent,
+                L"", L"", theme.text_secondary, true, true);
+            const float cx = (toggleRc.left + toggleRc.right) * 0.5f;
+            const float cy = (toggleRc.top + toggleRc.bottom) * 0.5f;
+            const float stroke = 1.25f * scale_;
+            const auto frame = D2D1::RectF(cx - 7.5f * scale_, cy - 6.5f * scale_,
+                                         cx + 7.5f * scale_, cy + 6.5f * scale_);
             MakeBrush(dc, theme.text_secondary, brTextSecondary_);
-            DrawTextRect(dc, compositor_->SmallFormat(), brTextSecondary_.get(), description,
-                x, 0.0f, descriptionWidth + 1.0f * scale_, h);
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(frame, 2.75f * scale_, 2.75f * scale_),
+                                     brTextSecondary_.get(), stroke);
+            const bool expanded = !user_sidebar_collapsed_ || SidebarPeekVisible(right);
+            const float divider = frame.left + (expanded ? 5.0f : 3.75f) * scale_;
+            const float inset = expanded ? 0.0f : 3.25f * scale_;
+            dc->DrawLine({divider, frame.top + inset}, {divider, frame.bottom - inset},
+                         brTextSecondary_.get(), stroke);
+            if (!expanded) {
+                for (float edge : {frame.top + inset, frame.bottom - inset})
+                    dc->FillEllipse(D2D1::Ellipse({divider, edge}, stroke * 0.5f, stroke * 0.5f),
+                                    brTextSecondary_.get());
+            }
         }
-    }
+        if (hasToggle && user_sidebar_collapsed_) {
+            // Rail: the toggle stands in for the brand mark.
+        } else if (ID2D1Bitmap* logo = LogoBitmap()) {
+            dc->DrawBitmap(logo, D2D1::RectF(x, markY, x + mark, markY + mark), 1.0f,
+                           D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
+        } else {
+            MakeBrush(dc, theme.accent, brAccent_);
+            dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x + mark * 0.5f, markY + mark * 0.5f),
+                                          mark * 0.5f, mark * 0.5f), brAccent_.get());
+            ComPtr<IDWriteTextFormat> markFmt;
+            typography::CreateTextFormat(compositor_->DwriteFactory(),
+                {typography::FontRole::Display, 11.0f * scale_, DWRITE_FONT_WEIGHT_SEMI_BOLD},
+                &markFmt);
+            if (markFmt.get()) {
+                markFmt->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+                markFmt->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+                MakeBrush(dc, theme.accent_text, brAccentText_);
+                DrawTextRect(dc, markFmt.get(), brAccentText_.get(), L"P", x, markY, mark, mark);
+            }
+        }
+        x += mark + 8.0f * scale_;
+        const float brandRight = TitleSidebarWidth(right) - 12.0f * scale_;
+        const float nameWidth = MeasureLayoutText(compositor_, compositor_->DwriteFactory(),
+            compositor_->HeaderFormat(), L"Pulse");
+        const WindowIdentityGeometry identity = WindowIdentityLayout(vm, right);
+        if (identity.hit.right > identity.hit.left && !identity.compact) {
+            // Multi-window M7c: this window's dot and name instead of the product name.
+            if (IsHovered(vm, HitTestResult::WindowIdentity)) {
+                MakeBrush(dc, theme.fill_hover, brFillHover_);
+                const float radius = theme.radius_control * scale_;
+                dc->FillRoundedRectangle(D2D1::RoundedRect(identity.hit, radius, radius), brFillHover_.get());
+            }
+            MakeBrush(dc, HexColor(vm.window_identity_rgb), brAccent_);
+            dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius, identity.dot_radius), brAccent_.get());
+            const float text_x = identity.hit.left + 22.0f * scale_;
+            MakeBrush(dc, theme.text, brText_);
+            DrawTextEndEllipsis(compositor_, compositor_->HeaderFormat(), brText_.get(),
+                                vm.window_identity_name, text_x, 0.0f, identity.hit.right - 6.0f * scale_ - text_x, h);
+        } else if (x + nameWidth <= brandRight) {
+            MakeBrush(dc, theme.text, brText_);
+            DrawTextRect(dc, compositor_->HeaderFormat(), brText_.get(), L"Pulse",
+                x, 0.0f, nameWidth + 1.0f * scale_, h);
+            x += nameWidth + 12.0f * scale_;
+            const auto description = l10n::Get(l10n::StringId::AppDescription);
+            const float descriptionWidth = MeasureLayoutText(compositor_, compositor_->DwriteFactory(),
+                compositor_->SmallFormat(), description);
+            if (x + descriptionWidth <= brandRight) {
+                MakeBrush(dc, theme.text_secondary, brTextSecondary_);
+                DrawTextRect(dc, compositor_->SmallFormat(), brTextSecondary_.get(), description,
+                    x, 0.0f, descriptionWidth + 1.0f * scale_, h);
+            }
+        }
 
-    if (identity.compact && identity.hit.right > identity.hit.left) {
-        // M7c on the rail: the window's dot on the corner of the mark (or of
-        // the toggle), ringed in the title bar's color so it stands apart.
-        MakeBrush(dc, theme.surface_title, brAccent_);
-        dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius + 1.5f * scale_,
-                                      identity.dot_radius + 1.5f * scale_), brAccent_.get());
-        MakeBrush(dc, HexColor(vm.window_identity_rgb), brAccent_);
-        dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius, identity.dot_radius), brAccent_.get());
+        if (identity.compact && identity.hit.right > identity.hit.left) {
+            // M7c on the rail: the window's dot on the corner of the mark (or of
+            // the toggle), ringed in the title bar's color so it stands apart.
+            MakeBrush(dc, theme.surface_title, brAccent_);
+            dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius + 1.5f * scale_,
+                                          identity.dot_radius + 1.5f * scale_), brAccent_.get());
+            MakeBrush(dc, HexColor(vm.window_identity_rgb), brAccent_);
+            dc->FillEllipse(D2D1::Ellipse(identity.dot, identity.dot_radius, identity.dot_radius), brAccent_.get());
+        }
     }
     const float ctrlW = 46.0f * scale_;
     const TitleChrome chrome = MakeTitleChrome(right, scale_, h);
@@ -1617,14 +1631,14 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
                              IsHovered(vm, HitTestResult::TabClose, static_cast<int>(i));
         const bool connect = active || raised;
         ChromeTabShape shape;
-        shape.top_radius = theme.radius_control * scale_;
+        shape.top_radius = ClassicRibbon() ? 0.0f : theme.radius_control * scale_;
         // Concentric with the neighboring inactive tab: outer radius = inner + gap.
-        shape.bottom_radius = shape.top_radius + control_gap_;
-        shape.connect_bottom = connect;
+        shape.bottom_radius = ClassicRibbon() ? 0.0f : shape.top_radius + control_gap_;
+        shape.connect_bottom = !ClassicRibbon() && connect;
         const float tabTop = tabY;
         // Use the same sheet edge for both opacity modes; overlap shifts the arc center.
-        const float tabBottom = connect ? std::round(h)
-                                        : (std::round(h) - control_gap_);
+        const float tabBottom = ClassicRibbon() ? tabY + tabH
+            : connect ? std::round(h) : (std::round(h) - control_gap_);
         const D2D1_RECT_F tabRc = D2D1::RectF(left, tabTop, left + tabW, tabBottom);
         if (part == 2) {
             // Content over a plate drawn elsewhere.
@@ -1668,7 +1682,7 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
             MakeBrush(dc, line, brAccent_);
             FillChromeTabAccent(dc, brAccent_.get(), tabRc, shape, 2.0f * scale_);
         }
-        if (active && part != 2) {
+        if (active && part != 2 && !ClassicRibbon()) {
             MakeBrush(dc, vm.tabs[i].color_rgb ? HexColor(vm.tabs[i].color_rgb) : theme.accent, brAccent_);
             FillRoundedRect(dc, brAccent_.get(), tabRc.left + 15*scale_, tabRc.bottom - 3*scale_,
                 std::min(28*scale_, tabW - 24*scale_), 2*scale_, scale_);
@@ -2075,52 +2089,55 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
         // separates it from the command row.
         FillRect(dc, brStrokeDivider_.get(), 0.0f, h - 1.0f, right, 1.0f);
     }
-    // Settings + theme: one quiet pill with a hairline between the two, so
-    // they read as app actions rather than two more caption buttons.
-    const float groupTop = h * 0.5f - 18.0f * scale_;
-    const float groupBottom = h * 0.5f + 18.0f * scale_;
-    if (!IsHighContrast()) {
-        MakeBrush(dc, WithAlpha(theme.text, vm.dark ? 0.06f : 0.045f), brFillHover_);
-        FillRoundedRect(dc, brFillHover_.get(), chrome.group_left, groupTop,
-                        chrome.group_right - chrome.group_left, groupBottom - groupTop, 8.0f * scale_);
-    }
-    MakeBrush(dc, IsHighContrast() ? theme.stroke_divider : WithAlpha(theme.text, 0.12f), brStrokeDivider_);
-    FillRect(dc, brStrokeDivider_.get(), chrome.theme_left - 1.0f * scale_, h * 0.5f - 8.0f * scale_,
-             1.0f * scale_, 16.0f * scale_);
-    MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
-    const float buttonTop = groupTop + 2.0f * scale_;
-    const float buttonBottom = groupBottom - 2.0f * scale_;
-    const D2D1_RECT_F settingsRc = D2D1::RectF(chrome.settings_left, buttonTop,
-        chrome.settings_left + chrome.settings_w, buttonBottom);
-    // Open settings has no tab: the button shows as selected instead, with the
-    // active tab's accent underline.
-    const bool settingsSelected = vm.settings_open;
-    const D2D1_COLOR_F settingsFill = settingsSelected
-        ? WithAlpha(theme.accent, IsHovered(vm, HitTestResult::SettingsButton) ? 0.26f : 0.18f)
-        : IsHovered(vm, HitTestResult::SettingsButton) ? theme.fill_hover : kTransparent;
-    DrawButton(settingsRc, theme, settingsFill, kIconSettings, L"S",
-        settingsSelected && !IsHighContrast() ? theme.accent : theme.text, true, true);
-    if (settingsSelected) {
-        MakeBrush(dc, theme.accent, brAccent_);
-        const float barW = 14.0f * scale_;
-        const float midX = (settingsRc.left + settingsRc.right) * 0.5f;
-        FillRoundedRect(dc, brAccent_.get(), midX - barW * 0.5f, settingsRc.bottom - 3.0f * scale_,
-                        barW, 2.5f * scale_, 1.25f * scale_);
-    }
-
-    const D2D1_RECT_F themeRc = D2D1::RectF(chrome.theme_left, buttonTop,
-        chrome.theme_left + chrome.theme_w, buttonBottom);
-    {
-        // The solid half shows the current theme: right in light, left in dark.
-        D2D1_MATRIX_3X2_F previous{};
-        dc->GetTransform(&previous);
-        if (vm.dark) {
-            dc->SetTransform(D2D1::Matrix3x2F::Rotation(180.0f, D2D1::Point2F(
-                (themeRc.left + themeRc.right) * 0.5f, (themeRc.top + themeRc.bottom) * 0.5f)) * previous);
+    if (!ClassicRibbon()) {
+        // Settings + theme: one quiet pill with a hairline between the two, so
+        // they read as app actions rather than two more caption buttons.
+        const float groupTop = h * 0.5f - 18.0f * scale_;
+        const float groupBottom = h * 0.5f + 18.0f * scale_;
+        if (!IsHighContrast()) {
+            MakeBrush(dc, WithAlpha(theme.text, vm.dark ? 0.06f : 0.045f), brFillHover_);
+            FillRoundedRect(dc, brFillHover_.get(), chrome.group_left, groupTop,
+                            chrome.group_right - chrome.group_left, groupBottom - groupTop, 8.0f * scale_);
         }
-        DrawButton(themeRc, theme, IsHovered(vm, HitTestResult::ThemeToggle) ? theme.fill_hover : kTransparent,
-            kIconTheme, L"T", theme.text, true, true);
-        dc->SetTransform(previous);
+        MakeBrush(dc, IsHighContrast() ? theme.stroke_divider : WithAlpha(theme.text, 0.12f), brStrokeDivider_);
+        FillRect(dc, brStrokeDivider_.get(), chrome.theme_left - 1.0f * scale_, h * 0.5f - 8.0f * scale_,
+                 1.0f * scale_, 16.0f * scale_);
+        MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
+        const float buttonTop = groupTop + 2.0f * scale_;
+        const float buttonBottom = groupBottom - 2.0f * scale_;
+        const D2D1_RECT_F settingsRc = D2D1::RectF(chrome.settings_left, buttonTop,
+            chrome.settings_left + chrome.settings_w, buttonBottom);
+        // Open settings has no tab: the button shows as selected instead, with the
+        // active tab's accent underline.
+        const bool settingsSelected = vm.settings_open;
+        const D2D1_COLOR_F settingsFill = settingsSelected
+            ? WithAlpha(theme.accent, IsHovered(vm, HitTestResult::SettingsButton) ? 0.26f : 0.18f)
+            : IsHovered(vm, HitTestResult::SettingsButton) ? theme.fill_hover : kTransparent;
+        DrawButton(settingsRc, theme, settingsFill, kIconSettings, L"S",
+            settingsSelected && !IsHighContrast() ? theme.accent : theme.text, true, true);
+        if (settingsSelected) {
+            MakeBrush(dc, theme.accent, brAccent_);
+            const float barW = 14.0f * scale_;
+            const float midX = (settingsRc.left + settingsRc.right) * 0.5f;
+            FillRoundedRect(dc, brAccent_.get(), midX - barW * 0.5f, settingsRc.bottom - 3.0f * scale_,
+                            barW, 2.5f * scale_, 1.25f * scale_);
+        }
+
+        const D2D1_RECT_F themeRc = D2D1::RectF(chrome.theme_left, buttonTop,
+            chrome.theme_left + chrome.theme_w, buttonBottom);
+        {
+            // The solid half shows the current theme: right in light, left in dark.
+            D2D1_MATRIX_3X2_F previous{};
+            dc->GetTransform(&previous);
+            if (vm.dark) {
+                dc->SetTransform(D2D1::Matrix3x2F::Rotation(180.0f, D2D1::Point2F(
+                    (themeRc.left + themeRc.right) * 0.5f, (themeRc.top + themeRc.bottom) * 0.5f)) * previous);
+            }
+            DrawButton(themeRc, theme, IsHovered(vm, HitTestResult::ThemeToggle) ? theme.fill_hover : kTransparent,
+                kIconTheme, L"T", theme.text, true, true);
+            dc->SetTransform(previous);
+        }
+
     }
 
     // Window controls, right-aligned in Win11 order: min, max/restore, close.
@@ -2151,6 +2168,10 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
         FillRect(dc, brFillHover_.get(), minRc.left, minRc.top, ctrlW, ctrlH);
     }
     DrawIconText(minRc.left, minRc.top, ctrlW, ctrlH, kIconMinimize, L"_", theme.text, 0.66f);
+    if (ClassicRibbon()) {
+        MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
+        FillRect(dc, brStrokeDivider_.get(), 0.0f, h - 1.0f, right, 1.0f);
+    }
 }
 
 void MainRenderer::DrawTeachBubble(const WindowViewModel& vm, const D2D1_RECT_F& rect,
@@ -2532,12 +2553,13 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
     TabStripMetrics m;
 
     const TitleChrome chrome = MakeTitleChrome(window_w, scale_, title_bar_height_);
-    m.x0 = TitleSidebarWidth(window_w) + margin_;
+    m.x0 = ClassicRibbon() ? 0.0f : TitleSidebarWidth(window_w) + margin_;
     // However many tabs are open, a stretch of title bar right of the "+"
     // button stays empty so the window can still be grabbed there; tabs
     // compact that much earlier instead.
     constexpr float kTabDragReserveDip = 56.0f;
-    const float tabsRight = chrome.settings_left - (8.0f + kTabDragReserveDip) * scale_;
+    const float tabsRight = (ClassicRibbon() ? window_w - 3.0f * 46.0f * scale_ : chrome.settings_left)
+        - (8.0f + kTabDragReserveDip) * scale_;
 
     // Group chips: one at the start of each consecutive same-group run. Their
     // widths come out of the strip budget before tabs are sized; positions
@@ -2577,13 +2599,14 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
     }
     const float pinnedW = (vm.show_pinned_tab_names ? kTabPinnedNamedW : kTabPinnedW) * scale_;
     m.pinned_w = pinnedW;
-    const float pinnedTotal = static_cast<float>(pinnedCount) * (pinnedW + control_gap_);
+    const float tab_gap = ClassicRibbon() ? 0.0f : control_gap_;
+    const float pinnedTotal = static_cast<float>(pinnedCount) * (pinnedW + tab_gap);
     const float spare = std::max(0.0f, available - pinnedTotal);
     const float minW = kTabMinW * scale_;
     const float normalW = visibleCount == 0 ? 0.0f
-        : spare / static_cast<float>(visibleCount) - control_gap_;
+        : spare / static_cast<float>(visibleCount) - tab_gap;
     if (tab_freeze_w_ > 0.0f && visibleCount > 0 && visibleCount <= tab_freeze_count_ &&
-        static_cast<float>(visibleCount) * (tab_freeze_w_ + control_gap_) +
+        static_cast<float>(visibleCount) * (tab_freeze_w_ + tab_gap) +
             (m.active >= 0 ? tab_freeze_active_w_ - tab_freeze_w_ : 0.0f) <= spare + 0.5f) {
         // Recently closed: keep the widths the pointer was aiming at.
         m.w = tab_freeze_w_;
@@ -2600,9 +2623,9 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
         m.overflow = true;
     }
     if (m.active < 0) m.active_w = m.w;
-    m.y = 4.0f * scale_;
-    m.h = title_bar_height_ - 8.0f * scale_;
-    m.pitch = m.w + control_gap_;
+    m.y = ClassicRibbon() ? 0.0f : 4.0f * scale_;
+    m.h = ClassicRibbon() ? title_bar_height_ : title_bar_height_ - 8.0f * scale_;
+    m.pitch = m.w + tab_gap;
     const float stripLeft = m.x0;
     if (m.overflow) {
         m.arrow_w = kTabScrollArrowW * scale_;
@@ -2630,11 +2653,11 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
         else if (static_cast<int>(i) == m.active) acc += m.active_w - m.w;
     }
     m.end_x = m.x0 + chipsTotal + static_cast<float>(pinnedCount) *
-        (pinnedW + control_gap_) + static_cast<float>(visibleCount) * m.pitch +
+        (pinnedW + tab_gap) + static_cast<float>(visibleCount) * m.pitch +
         (m.active >= 0 ? m.active_w - m.w : 0.0f);
     if (m.overflow) {
         const float view = m.view_right - m.view_left;
-        m.max_scroll = std::max(0.0f, m.end_x - control_gap_ - m.view_left - view);
+        m.max_scroll = std::max(0.0f, m.end_x - tab_gap - m.view_left - view);
         if (m.active >= 0 && m.active != tab_scroll_active_) {
             // A newly active tab (click, keyboard, new tab) scrolls into view.
             const size_t a = static_cast<size_t>(m.active);

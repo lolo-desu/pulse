@@ -359,9 +359,141 @@ void MainRenderer::DrawToolbarApps(const WindowViewModel& vm, const ToolbarLayou
 
 ToolbarSelectionChip MainRenderer::SelectionChipAt(const ToolbarLayout& layout, float width, int selected,
                                                    int action_count) const {
-    if (selected <= 0 || embedded_) return {};
+    if (selected <= 0 || embedded_ || ClassicRibbon()) return {};
     return MakeToolbarSelectionChip(layout,scale_,SelectionChipLabelWidth(width,selected),action_count);
 }
+void MainRenderer::DrawClassicRibbon(const WindowViewModel& vm, const ToolbarLayout& layout,
+                                     float width, const Theme& theme) {
+    auto* dc = compositor_->Dc();
+    using S = l10n::StringId;
+    const float top = title_bar_height_;
+    painter_.FillRoundedRect({0, top, width, top + 120 * scale_}, 0, theme.surface_card);
+    const S tabs[] = {S::RibbonFile, S::RibbonHome, S::RibbonShare, S::RibbonView};
+    for (int i = 0; i < 4; ++i) {
+        const auto b = layout.ribbon_tabs[i];
+        const bool selected = i == ribbon_tab_ + 1;
+        const bool hover = i == 0 ? IsHovered(vm, HitTestResult::ToolbarMore)
+                                 : IsHovered(vm, HitTestResult::RibbonTab, i - 1);
+        painter_.FillRoundedRect(b, 0, i == 0 ? theme.accent : selected ? theme.surface_card
+                                                   : hover ? theme.fill_hover : theme.surface_title);
+        if (selected) painter_.StrokeRoundedRect(b, 0, theme.stroke_divider, scale_);
+        painter_.DrawText(l10n::Get(tabs[i]), b, compositor_->SmallFormat(),
+                          i == 0 ? theme.accent_text : theme.text, fluent::HorizontalAlignment::Center);
+    }
+    painter_.FillRoundedRect({0, top + 119 * scale_, width, top + 120 * scale_}, 0, theme.stroke_divider);
+    painter_.FillRoundedRect({0, top + 155 * scale_, width, top + 156 * scale_}, 0, theme.stroke_divider);
+    const auto button = [&](const D2D1_RECT_F& b, const std::wstring& glyph, std::wstring label,
+                            bool enabled, bool checked, bool hovered) {
+        if (b.right <= b.left) return;
+        if ((hovered && enabled) || checked) {
+            painter_.FillRoundedRect(b, 0, checked ? theme.fill_selected : theme.fill_hover);
+            painter_.StrokeRoundedRect(b, 0, theme.stroke_card, scale_);
+        }
+        const auto fg = enabled ? theme.text : theme.text_disabled;
+        const auto shortcut = label.find(L" (");
+        if (shortcut != std::wstring::npos) label.resize(shortcut);
+        const float icon_size = 28 * scale_;
+        const float icon_x = (b.left + b.right - icon_size) * 0.5f;
+        const D2D1_RECT_F icon_rect{icon_x, b.top + 3 * scale_, icon_x + icon_size, b.top + 31 * scale_};
+        if (DrawClassicCommandIcon(glyph, icon_rect, enabled ? 1.0f : 0.4f, theme.text)) {
+            // The bitmap carries the native Windows artwork and color.
+        } else if (glyph == kToolbarSplitGlyph)
+            DrawPaneHeaderIcon({b.left + 17 * scale_, b.top + 5 * scale_, b.right - 17 * scale_, b.top + 33 * scale_},
+                               PaneHeaderIcon::Split, fg);
+        else {
+            const float old = icon_box_dip_;
+            icon_box_dip_ = 28;
+            DrawIconText(b.left, b.top + 3 * scale_, b.right - b.left, 32 * scale_, glyph, L"", fg);
+            icon_box_dip_ = old;
+        }
+        const D2D1_RECT_F caption{b.left + 2 * scale_, b.top + 34 * scale_, b.right - 2 * scale_, b.bottom};
+        const float caption_width = caption.right - caption.left;
+        const auto measure_caption = [&](const std::wstring& text) {
+            return MeasureLayoutText(compositor_, compositor_->DwriteFactory(), compositor_->SmallFormat(), text);
+        };
+        if (measure_caption(label) > caption_width) {
+            size_t split = 1;
+            while (split < label.size() && measure_caption(label.substr(0, split + 1)) <= caption_width) ++split;
+            const size_t word = label.rfind(L' ', split);
+            if (word != std::wstring::npos && word > 0) split = word;
+            std::wstring first = label.substr(0, split), second = label.substr(split);
+            while (!second.empty() && second.front() == L' ') second.erase(second.begin());
+            const float middle = (caption.top + caption.bottom) * 0.5f;
+            painter_.DrawText(first, {caption.left, caption.top, caption.right, middle},
+                              compositor_->SmallFormat(), fg, fluent::HorizontalAlignment::Center);
+            painter_.DrawText(FitEndEllipsis(second, caption_width, measure_caption),
+                              {caption.left, middle, caption.right, caption.bottom},
+                              compositor_->SmallFormat(), fg, fluent::HorizontalAlignment::Center);
+        } else painter_.DrawText(label, caption, compositor_->SmallFormat(), fg, fluent::HorizontalAlignment::Center);
+    };
+    const bool connect = vm.pane.connect_server;
+    button(layout.create, connect ? L"\xE968" : NewButtonGlyph(),
+           connect ? l10n::Get(S::ConnectServer) : NewButtonLabel(),
+           connect || vm.pane.can_create_folder, false,
+           IsHovered(vm, HitTestResult::NewButton) || IsHovered(vm, HitTestResult::NewButtonArrow));
+    if (layout.create.right > layout.create.left) {
+        DrawIconText(layout.create.right - 14 * scale_, layout.create.top + 41 * scale_, 12 * scale_, 16 * scale_,
+                     L"\xE70D", L"", theme.text_secondary, 0.6f);
+        painter_.DrawText(l10n::Get(S::RibbonNew), {4 * scale_, top + 96 * scale_, 96 * scale_, top + 116 * scale_},
+                          compositor_->SmallFormat(), theme.text_secondary, fluent::HorizontalAlignment::Center);
+        painter_.FillRoundedRect({98 * scale_, top + 29 * scale_, 99 * scale_, top + 113 * scale_}, 0, theme.stroke_divider);
+    }
+    for (size_t i = 0; i < vm.toolbar_pins.size() && i < layout.pins.size(); ++i) {
+        const auto& pin = vm.toolbar_pins[i];
+        const auto b = layout.pins[i];
+        button(b, pin.glyph, pin.label, pin.enabled, pin.checked,
+               IsHovered(vm, HitTestResult::ToolbarPin, static_cast<int>(i)));
+        if (b.right <= b.left) continue;
+        if (i % 3 == 0) {
+            size_t last = i;
+            while (last + 1 < std::min(i + 3, vm.toolbar_pins.size()) && layout.pins[last + 1].right > layout.pins[last + 1].left) ++last;
+            const S home_groups[] = {S::RibbonClipboard, S::RibbonOrganize, S::RibbonSelection};
+            const S group = ribbon_tab_ == 0 ? home_groups[std::min<size_t>(i / 3, 2)]
+                          : ribbon_tab_ == 2 ? S::RibbonView : S::RibbonTools;
+            painter_.DrawText(l10n::Get(group), {b.left, top + 96 * scale_, layout.pins[last].right, top + 116 * scale_},
+                              compositor_->SmallFormat(), theme.text_secondary, fluent::HorizontalAlignment::Center);
+            if (i > 0) painter_.FillRoundedRect({b.left - 6 * scale_, top + 29 * scale_, b.left - 5 * scale_, top + 113 * scale_},
+                                               0, theme.stroke_divider);
+        }
+    }
+    DrawToolbarApps(vm, layout, theme);
+    const auto command = [&](const D2D1_RECT_F& b, const wchar_t* glyph, S label, HitTestResult::Region hit) {
+        const bool text = b.right - b.left > 60 * scale_;
+        if (IsHovered(vm, hit)) painter_.FillRoundedRect(b, 0, theme.fill_hover);
+        DrawIconText(b.left, b.top, text ? 28 * scale_ : b.right - b.left, b.bottom - b.top,
+                     glyph, L"", theme.text);
+        if (text) painter_.DrawText(l10n::Get(label),
+            {b.left + 30 * scale_, b.top, b.right - 4 * scale_, b.bottom}, compositor_->SmallFormat(), theme.text);
+    };
+    command(layout.sort, L"\xE8CB", S::ToolbarSort, HitTestResult::ToolbarSort);
+    if (vm.pane.filter_expand > 0.0f || vm.filter_editing) {
+        fluent::TextFieldSpec field;
+        field.bounds = layout.filter;
+        field.placeholder = l10n::Get(S::FilterPlaceholder);
+        field.text = vm.pane.filter_text;
+        field.leading_glyph = kIconFilter;
+        field.compact_leading_glyph = true;
+        field.suppress_text = vm.filter_editing;
+        field.state.focused = vm.filter_editing;
+        field.state.hovered = IsHovered(vm, HitTestResult::FilterBox);
+        if (!vm.pane.filter_text.empty()) field.trailing_width = 30;
+        painter_.DrawTextField(field);
+        if (!vm.pane.filter_text.empty() && vm.pane.filter_expand >= 0.985f) {
+            auto clear = layout.filter;
+            clear.left = clear.right - 30 * scale_;
+            clear.right -= 3 * scale_;
+            clear.top += 3 * scale_;
+            clear.bottom -= 3 * scale_;
+            DrawButton(clear, theme, IsHovered(vm, HitTestResult::FilterClear) ? theme.fill_hover : kTransparent,
+                       L"\xE711", L"", theme.text_secondary, true, true, kIconSmall);
+        }
+    } else command(layout.filter, kIconFilter, S::ToolbarFilter, HitTestResult::FilterBox);
+    command(layout.group, L"\xF168", S::ToolbarGroup, HitTestResult::ToolbarGroup);
+    DrawButton(layout.overflow, theme, IsHovered(vm, HitTestResult::ToolbarMore) ? theme.fill_hover : kTransparent,
+               L"\xE712", L"", theme.text, true, true);
+    (void)dc;
+}
+
 void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rect, const Theme& theme) {
     auto* dc = compositor_->Dc();
     struct IconScope {
@@ -370,7 +502,7 @@ void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rec
     } icon_scope{&icon_stroke_px_,&icon_box_dip_};
     icon_stroke_px_=kIconStrokeDip*scale_;
     icon_box_dip_=kIconBoxDip;
-    const float left = EffectiveSidebarWidth(rect.right);
+    const float left = ClassicRibbon() ? 0.0f : EffectiveSidebarWidth(rect.right);
     const bool compact = rect.right-left < 600*scale_;
     const auto layout = ToolbarLayoutAt(rect.right,NewButtonWidthPx(compact),vm.pane.filter_expand);
     const bool searchOverlay=vm.address_searching && rect.right-left<480*scale_;
@@ -635,6 +767,7 @@ void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rec
         dc->PopAxisAlignedClip();
     }
     DrawAddressSearchChrome(vm, rect.right, theme);
+    if (ClassicRibbon()) { DrawClassicRibbon(vm, layout, rect.right, theme); return; }
     MakeBrush(dc,theme.stroke_divider,brStrokeDivider_);
     FillRect(dc,brStrokeDivider_.get(),left+margin_,title_bar_height_+44*scale_,rect.right-left-2*margin_,scale_);
     // Embedded hosts (the file picker) keep the address row only.
