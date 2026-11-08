@@ -839,24 +839,6 @@ bool pulse::PrepareSessionForUpdate(AppState& s) {
     return s.updateSessionPrepared;
 }
 
-// System broadcasts (host_routing.h, multi-window M3c), handled once for the
-// process: the shared part runs once, the window part for every window that
-// shares `s`'s core (only `s` when it is not registered).
-// The windows closed since the last one was last used close along with it
-// (closed_windows.h): with "restore last tabs" they come back with it, from
-// the tray (WM_ACTIVATE opens pending_session_windows) or at the next launch
-// (CaptureWindowSession saves them as open windows).
-static void KeepWindowsClosedAlong(AppState& s) {
-    if (!app::RestoresLastTabs(s.appPrefs)) return;
-    const uint64_t since = app::LastUseBeforeClose(s.last_input_tick, s.previous_use_tick, GetTickCount64());
-    auto along = s.core.closed_windows.TakeClosedSince(since);
-    if (along.empty()) return;
-    DismissReopenToasts(s, WM_REOPEN_CLOSED_WINDOW);
-    // Most recently closed first, like the session's windows.
-    for (auto it = along.rbegin(); it != along.rend(); ++it)
-        s.core.pending_session_windows.push_back(app::ClosedWindowToSession(*it).window);
-}
-
 // Close button, Alt+F4, WM_CLOSE (plan §8.1). One of several windows is
 // destroyed and takes only its own state along; the last window hides to the
 // tray when Pulse keeps running in the background, otherwise it exits.
@@ -870,7 +852,6 @@ static void CloseMainWindow(AppState& s) {
     }
     SuspendContentSearches(s);
     s.globalSearchWindow.Hide();
-    KeepWindowsClosedAlong(s);
     if (s.appPrefs.KeepsRunningInBackground()) HideMainWindowToTray(s);
     else DestroyWindow(hwnd);
 }
@@ -4008,16 +3989,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         state.session_layout_tabs = std::move(session.layout_tabs);
         state.session_tab_groups = std::move(session.tab_groups);
         state.session_active_layout_tab = session.active_layout_tab;
-        // Session v8 (M4d): the single-window fields above are the focused
-        // window; the others open after the first window is shown.
+        // Session v8: the single-window fields above describe the focused window.
         if (session.focused_window >= 0 && session.focused_window < static_cast<int>(session.windows.size()))
             state.identity = session.windows[static_cast<size_t>(session.focused_window)].identity;  // M7c
-        for (size_t i = 0; i < session.windows.size(); ++i)
-            if (static_cast<int>(i) != session.focused_window)
-                state.core.pending_session_windows.push_back(std::move(session.windows[i]));
         // M7f: Ctrl+Shift+T and the overview can still bring these back.
         for (const auto& closed : session.closed_windows)
             state.core.closed_windows.Push(app::ClosedWindowFromSession(closed, ++state.core.close_seq));
+        // Restore only the focused window. Keep the others as explicit reopen records.
+        for (size_t i = session.windows.size(); i-- > 0;)
+            if (static_cast<int>(i) != session.focused_window) {
+                app::ClosedWindowSessionSnapshot closed;
+                closed.window = std::move(session.windows[i]);
+                closed.window.window_rect = app::RestoredWindowRect(closed.window.window_rect);
+                state.core.closed_windows.Push(app::ClosedWindowFromSession(closed, ++state.core.close_seq));
+            }
         state.tray = session.tray;
         state.darkMode = session.dark;
         state.sidebarCollapsedMask = static_cast<uint32_t>(session.sidebar_collapsed);

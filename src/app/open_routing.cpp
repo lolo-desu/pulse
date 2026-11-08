@@ -67,8 +67,12 @@ void ForgetOpenToast(AppCore& core) {
 }  // namespace
 
 AppState& OpenExternalFolder(AppState& mru, const std::wstring& raw) {
-    // Win+E's shell command launches Pulse without a path. Each launch is a
-    // new-window request, even when the current folder is already visible.
+    // A taskbar shortcut or Win+E launch activates the existing window.
+    // Explicit New Window commands still go through the window factory.
+    if (raw.empty()) {
+        RevealWindow(mru);
+        return mru;
+    }
     const bool new_window = raw.empty();
     const bool this_pc = new_window || app::IsThisPcArgument(raw);
     const auto* current = ActiveTab(mru);
