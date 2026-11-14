@@ -2227,10 +2227,6 @@ void MainRenderer::DrawTitleBar(const WindowViewModel& vm, const D2D1_RECT_F& re
         FillRect(dc, brFillHover_.get(), minRc.left, minRc.top, ctrlW, ctrlH);
     }
     DrawIconText(minRc.left, minRc.top, ctrlW, ctrlH, kIconMinimize, L"_", theme.text, 0.66f);
-    if (ClassicRibbon()) {
-        MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
-        FillRect(dc, brStrokeDivider_.get(), 0.0f, h - 1.0f, right, 1.0f);
-    }
 }
 
 void MainRenderer::DrawTeachBubble(const WindowViewModel& vm, const D2D1_RECT_F& rect,
