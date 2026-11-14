@@ -285,11 +285,10 @@ void MainRenderer::DrawTrayShelf(const WindowViewModel& vm, const D2D1_RECT_F& r
         dc->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
             D2D1::IdentityMatrix(), Clamp01(panel_h / (40.0f * s))), nullptr);
     dc->FillRoundedRectangle(D2D1::RoundedRect(rc, radius, radius), br.get());
-    // Drop target: the edge brightens while files hover the tray itself.
+    // Share the sidebar and status bar edges; only the tray's top needs a rule.
     const D2D1_COLOR_F edge = vm.tray_drop ? Alpha(p.acc2, 0.75f) : p.edge;
     br->SetColor(edge);
-    dc->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(rc.left + 0.5f, rc.top + 0.5f,
-        rc.right - 0.5f, rc.bottom - 0.5f), radius, radius), br.get(), 1.0f);
+    dc->FillRectangle(D2D1::RectF(rc.left, rc.top, rc.right, rc.top + 1.0f), br.get());
 
     ComPtr<ID2D1Factory> factory;
     dc->GetFactory(&factory);
