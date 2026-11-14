@@ -53,9 +53,10 @@ DetailsMotion& DetailsMotionFor(const void* renderer) {
 D2D1_RECT_F MainRenderer::DetailsPanelRect(float w, float h) const {
     if (DetailsPanelWidth(w) <= 0.0f) return D2D1::RectF(0.0f, 0.0f, 0.0f, 0.0f);
     const float pw = details_width_ * scale_;
-    const float top = title_bar_height_ + toolbar_height_ + margin_;
-    const float bottom = h - status_height_ - margin_;
-    return D2D1::RectF(w - margin_ - pw, top, w - margin_, bottom);
+    const float inset = ClassicRibbon() ? 0.0f : margin_;
+    const float top = title_bar_height_ + toolbar_height_ + inset;
+    const float bottom = h - status_height_ - inset;
+    return D2D1::RectF(w - inset - pw, top, w - inset, bottom);
 }
 void MainRenderer::DrawDetailsPanel(const WindowViewModel& vm, const D2D1_RECT_F& rect,
                                     const Theme& theme) {
@@ -107,7 +108,10 @@ void MainRenderer::DrawDetailsPanel(const WindowViewModel& vm, const D2D1_RECT_F
     const float cardRadius = theme.radius_control * s;
     // Share the sidebar sheet so both sides retain the same transparency.
     MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-    dc->DrawRoundedRectangle(D2D1::RoundedRect(
+    if (ClassicRibbon()) {
+        MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
+        FillRect(dc, brStrokeDivider_.get(), panel.left, panel.top, s, panel.bottom - panel.top);
+    } else dc->DrawRoundedRectangle(D2D1::RoundedRect(
         D2D1::RectF(panel.left + 0.5f * s, panel.top + 0.5f * s,
                     panel.right - 0.5f * s, panel.bottom - 0.5f * s),
         cardRadius, cardRadius), brStrokeCard_.get(), 1.0f * s);

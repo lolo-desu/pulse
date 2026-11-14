@@ -367,7 +367,8 @@ void MainRenderer::DrawClassicRibbon(const WindowViewModel& vm, const ToolbarLay
     auto* dc = compositor_->Dc();
     using S = l10n::StringId;
     const float top = title_bar_height_;
-    painter_.FillRoundedRect({0, top, width, top + 120 * scale_}, 0, theme.surface_card);
+    painter_.FillRoundedRect({0, top, width, top + 24 * scale_}, 0, theme.surface_title);
+    painter_.FillRoundedRect({0, top + 24 * scale_, width, top + 120 * scale_}, 0, theme.surface_card);
     const S tabs[] = {S::RibbonFile, S::RibbonHome, S::RibbonShare, S::RibbonView};
     for (int i = 0; i < 4; ++i) {
         const auto b = layout.ribbon_tabs[i];
@@ -376,7 +377,6 @@ void MainRenderer::DrawClassicRibbon(const WindowViewModel& vm, const ToolbarLay
                                  : IsHovered(vm, HitTestResult::RibbonTab, i - 1);
         painter_.FillRoundedRect(b, 0, i == 0 ? theme.accent : selected ? theme.surface_card
                                                    : hover ? theme.fill_hover : theme.surface_title);
-        if (selected) painter_.StrokeRoundedRect(b, 0, theme.stroke_divider, scale_);
         painter_.DrawText(l10n::Get(tabs[i]), b, compositor_->SmallFormat(),
                           i == 0 ? theme.accent_text : theme.text, fluent::HorizontalAlignment::Center);
     }
@@ -489,8 +489,6 @@ void MainRenderer::DrawClassicRibbon(const WindowViewModel& vm, const ToolbarLay
         }
     } else command(layout.filter, kIconFilter, S::ToolbarFilter, HitTestResult::FilterBox);
     command(layout.group, L"\xF168", S::ToolbarGroup, HitTestResult::ToolbarGroup);
-    DrawButton(layout.overflow, theme, IsHovered(vm, HitTestResult::ToolbarMore) ? theme.fill_hover : kTransparent,
-               L"\xE712", L"", theme.text, true, true);
     (void)dc;
 }
 

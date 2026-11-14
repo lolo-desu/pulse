@@ -20,8 +20,8 @@ void MainRenderer::DrawSettingsPacks(const WindowViewModel& vm, const D2D1_RECT_
         if (r.bottom <= r.top) return;
         MakeBrush(dc, WithAlpha(theme.surface_card, card_alpha_), brFillInput_);
         MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r, 8*s, 8*s), brFillInput_.get());
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(r, 8*s, 8*s), brStrokeCard_.get(), 1);
+        dc->FillRoundedRectangle(D2D1::RoundedRect(r, theme.radius_control * s, theme.radius_control * s), brFillInput_.get());
+        dc->DrawRoundedRectangle(D2D1::RoundedRect(r, theme.radius_control * s, theme.radius_control * s), brStrokeCard_.get(), 1);
     };
     auto divider_below = [&](D2D1_RECT_F r) {
         if (r.bottom <= r.top) return;
@@ -35,7 +35,7 @@ void MainRenderer::DrawSettingsPacks(const WindowViewModel& vm, const D2D1_RECT_
         if (r.bottom <= r.top || !hovered(action)) return;
         MakeBrush(dc, theme.fill_hover, brFillHover_);
         FillRoundedRect(dc, brFillHover_.get(), r.left + 4*s, r.top + 2*s,
-                        r.right - r.left - 8*s, r.bottom - r.top - 4*s, 4*s);
+                        r.right - r.left - 8*s, r.bottom - r.top - 4*s, theme.radius_control * s);
     };
     auto button = [&](D2D1_RECT_F r, std::wstring_view label, PackAction action,
                       fluent::ButtonKind kind = fluent::ButtonKind::Standard, bool enabled = true) {
@@ -80,7 +80,7 @@ void MainRenderer::DrawSettingsPacks(const WindowViewModel& vm, const D2D1_RECT_
     };
     const auto chip = [&](D2D1_RECT_F bounds, std::wstring_view label, PreviewFormatState support) {
         const auto color = source_color(support.source);
-        const auto rounded = D2D1::RoundedRect(bounds, (bounds.bottom - bounds.top)/2, (bounds.bottom - bounds.top)/2);
+        const auto rounded = D2D1::RoundedRect(bounds, theme.radius_control * s, theme.radius_control * s);
         MakeBrush(dc, WithAlpha(color, vm.dark ? 0.13f : 0.08f), brFillHover_);
         if (support.available) dc->FillRoundedRectangle(rounded, brFillHover_.get());
         else {
@@ -140,7 +140,7 @@ void MainRenderer::DrawSettingsPacks(const WindowViewModel& vm, const D2D1_RECT_
     if (IsHovered(vm, H::SettingsDisclosure, 2)) {
         MakeBrush(dc, theme.fill_hover, brFillHover_);
         FillRoundedRect(dc, brFillHover_.get(), header.left + 2*s, header.top + 2*s,
-                        header.right - header.left - 4*s, header.bottom - header.top - 4*s, 6*s);
+                        header.right - header.left - 4*s, header.bottom - header.top - 4*s, theme.radius_control * s);
     }
     DrawIconText(header.left + 16*s, header.top + 20*s, 24*s, 24*s, L"\xE8A5", L"", theme.text_secondary, 0.85f);
     text(pack_text::FormatsTitle(), lay.preview_header_title);
@@ -296,7 +296,7 @@ void MainRenderer::DrawSettingsPacks(const WindowViewModel& vm, const D2D1_RECT_
         if (c.notice_box.bottom > c.notice_box.top) {
             const auto& n = c.notice_box;
             MakeBrush(dc, theme.fill_hover, brFillHover_);
-            FillRoundedRect(dc, brFillHover_.get(), n.left, n.top, n.right - n.left, n.bottom - n.top, 6*s);
+            FillRoundedRect(dc, brFillHover_.get(), n.left, n.top, n.right - n.left, n.bottom - n.top, theme.radius_control * s);
             MakeBrush(dc, theme.accent, brFillSelected_);
             FillRoundedRect(dc, brFillSelected_.get(), n.left, n.top + 6*s, 3*s, n.bottom - n.top - 12*s, 1.5f*s);
             painter_.DrawWrappedCaption(c.notice, D2D1::Point2F(n.left + 12*s, n.top + 6*s),

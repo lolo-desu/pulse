@@ -17,6 +17,7 @@
 // once everything is at rest. With system animations off the cards snap
 // to the pointer and vanish on release.
 #include "drag_drop.h"
+#include "drag_feedback_layout.h"
 #include "ui_motion.h"
 #include "command_icons.h"
 
@@ -167,6 +168,13 @@ struct Card {
     float rot = 0;        // deg
 };
 
+D2D1::Matrix3x2F CardTransform(const Card& card, float dx, float dy, float scale,
+                               float dpi_scale, D2D1_POINT_2F pivot) {
+    return D2D1::Matrix3x2F::Rotation(card.rot, D2D1::Point2F(card.w * 0.5f, kCardH * dpi_scale * 0.5f)) *
+           D2D1::Matrix3x2F::Translation(kAnchorX * dpi_scale + dx, kAnchorY * dpi_scale + dy) *
+           D2D1::Matrix3x2F::Scale(scale, scale, pivot);
+}
+
 class DragStack final : public DragVisual {
 public:
     static DragStack* Create(const std::vector<std::wstring>& paths);
@@ -180,6 +188,7 @@ public:
     }
 
     void Finish(DWORD effect, bool cancelled) override {
+        SetDragVisualBounds(hwnd_, nullptr);
         effect_ = effect;
         const bool land = TakeDragLandingExpectation() && !cancelled && effect != DROPEFFECT_NONE;
         if (!hwnd_ || !animate_) {
@@ -311,6 +320,7 @@ LRESULT CALLBACK DragStack::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return MA_NOACTIVATE;
     case WM_NCDESTROY:
         if (self) {
+            SetDragVisualBounds(hwnd, nullptr);
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
             self->Disarm();
             if (self->phase_ == Phase::Await) SetDragLandingWindow(nullptr);
@@ -706,12 +716,7 @@ void DragStack::DrawCard(const Card& c, bool lead, float dx, float dy, float sca
                          D2D1_POINT_2F pivot) {
     const float h = kCardH * s_;
     const float r = kRadius * s_;
-    const float ax = kAnchorX * s_ + dx;
-    const float ay = kAnchorY * s_ + dy;
-    const D2D1_MATRIX_3X2_F m = D2D1::Matrix3x2F::Rotation(c.rot, D2D1::Point2F(c.w * 0.5f, h * 0.5f)) *
-                                D2D1::Matrix3x2F::Translation(ax, ay) *
-                                D2D1::Matrix3x2F::Scale(scale, scale, pivot);
-    rt_->SetTransform(m);
+    rt_->SetTransform(CardTransform(c, dx, dy, scale, s_, pivot));
 
     // Soft shadow from two inflated, offset plates (no blur effects: the DC
     // target is software-friendly and this stays well under a millisecond).
@@ -808,7 +813,7 @@ void DragStack::Render(float scale, float alpha) {
     const Card& lead = cards_[0];
     const float fx = lead.x - std::floor(lead.x);
     const float fy = lead.y - std::floor(lead.y);
-    const POINT win_pos{static_cast<LONG>(std::floor(lead.x) - kAnchorX * s_),
+    POINT win_pos{static_cast<LONG>(std::floor(lead.x) - kAnchorX * s_),
                         static_cast<LONG>(std::floor(lead.y) - kAnchorY * s_)};
 
     const RECT rc{0, 0, win_w_, win_h_};
@@ -820,6 +825,7 @@ void DragStack::Render(float scale, float alpha) {
     const D2D1_POINT_2F pivot = D2D1::Point2F(kAnchorX * s_ - kOffX * s_ * 0.5f,
                                               kAnchorY * s_ - kOffY * s_ * 0.5f);
     const float max_dx = kWinW * s_ - kAnchorX * s_ - lead.w - 8 * s_;
+    D2D1_RECT_F painted{static_cast<float>(win_w_), static_cast<float>(win_h_), 0, 0};
     for (size_t i = cards_.size(); i-- > 0;) {
         const Card& c = cards_[i];
         float dx = c.x - std::floor(lead.x);
@@ -832,11 +838,40 @@ void DragStack::Render(float scale, float alpha) {
             dx = fx;
             dy = fy;
         }
+        const auto transform = CardTransform(c, dx, dy, scale, s_, pivot);
+        // Cover the tilted body, shadows, count badge and operation glyph.
+        const D2D1_POINT_2F corners[] = {
+            {-10 * s_, -12 * s_}, {c.w + 5 * s_, -12 * s_},
+            {-10 * s_, (kCardH + 12) * s_}, {c.w + 5 * s_, (kCardH + 12) * s_}};
+        for (const auto corner : corners) {
+            const auto point = transform.TransformPoint(corner);
+            painted.left = std::min(painted.left, point.x);
+            painted.top = std::min(painted.top, point.y);
+            painted.right = std::max(painted.right, point.x);
+            painted.bottom = std::max(painted.bottom, point.y);
+        }
         DrawCard(c, i == 0, dx, dy, scale, pivot);
     }
     rt_->SetTransform(D2D1::Matrix3x2F::Identity());
     if (rt_->EndDraw() == D2DERR_RECREATE_TARGET) {
         // Lost device on a DC target is rare; dropping the frame is fine.
+    }
+
+    RECT screen_bounds{
+        win_pos.x + static_cast<LONG>(std::floor(std::max(0.0f, painted.left))),
+        win_pos.y + static_cast<LONG>(std::floor(std::max(0.0f, painted.top))),
+        win_pos.x + static_cast<LONG>(std::ceil(std::min(static_cast<float>(win_w_), painted.right))),
+        win_pos.y + static_cast<LONG>(std::ceil(std::min(static_cast<float>(win_h_), painted.bottom)))};
+    if (phase_ == Phase::Live) {
+        MONITORINFO monitor{sizeof(monitor)};
+        if (GetMonitorInfoW(MonitorFromPoint(last_pt_, MONITOR_DEFAULTTONEAREST), &monitor)) {
+            const RECT fitted = ClampDragFeedbackRect(screen_bounds, monitor.rcWork);
+            const LONG dx = fitted.left - screen_bounds.left;
+            const LONG dy = fitted.top - screen_bounds.top;
+            win_pos.x += dx;
+            win_pos.y += dy;
+            OffsetRect(&screen_bounds, dx, dy);
+        }
     }
 
 #ifdef PULSE_DRAGSTACK_TEST
@@ -848,7 +883,10 @@ void DragStack::Render(float scale, float alpha) {
     BLENDFUNCTION blend{AC_SRC_OVER, 0, static_cast<BYTE>(std::lround(Clamp01(alpha) * 255.0f)),
                         AC_SRC_ALPHA};
     POINT pos = win_pos;
-    UpdateLayeredWindow(hwnd_, nullptr, &pos, &size, mem_dc_, &src, 0, &blend, ULW_ALPHA);
+    if (UpdateLayeredWindow(hwnd_, nullptr, &pos, &size, mem_dc_, &src, 0, &blend, ULW_ALPHA) &&
+        phase_ == Phase::Live) {
+        SetDragVisualBounds(hwnd_, &screen_bounds);
+    }
     if (!shown_) {
         ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
         shown_ = true;

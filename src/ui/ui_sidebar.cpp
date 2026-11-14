@@ -152,8 +152,9 @@ float ChevronAngle(SidebarMotion& m, const std::wstring& key, bool expanded, uin
 } // namespace
 
 D2D1_RECT_F MainRenderer::SidebarRect(float w, float h) const {
-    float top = title_bar_height_ + (ClassicRibbon() ? toolbar_height_ : 0.0f) + margin_;
-    float bottom = h - status_height_ - margin_;
+    const float inset = ClassicRibbon() ? 0.0f : margin_;
+    float top = title_bar_height_ + (ClassicRibbon() ? toolbar_height_ : 0.0f) + inset;
+    float bottom = h - status_height_ - inset;
     const float right = SidebarPeekVisible(w) ? SidebarFullWidth(w) : SidebarOwnWidth(w);
     return D2D1::RectF(0.0f, top, right, bottom);
 }

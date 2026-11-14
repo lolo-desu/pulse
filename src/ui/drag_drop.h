@@ -129,6 +129,11 @@ public:
 using DragVisualFactory = DragVisual* (*)(const std::vector<std::wstring>& paths);
 void SetDragVisualFactory(DragVisualFactory factory);
 
+// Actual painted card bounds, including animation, badges and shadows, in
+// screen pixels. The tip renderer registers its window for geometry updates.
+void SetDragVisualBounds(HWND visual, const RECT* screen_rect);
+bool GetDragVisualBounds(HWND tip_window, RECT& screen_rect);
+
 // Landing in the real slots (pulse_motion_v2, rolando-sound-cards): a drop
 // into a folder that a Pulse list shows asks the card stack to wait at the
 // drop point instead of gulping; once the new rows are on screen their

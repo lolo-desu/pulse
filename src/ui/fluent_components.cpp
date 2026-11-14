@@ -2168,8 +2168,8 @@ void Painter::DrawSplitButton(const SplitButtonSpec& spec) {
 void Painter::DrawSegmentedTrack(const D2D1_RECT_F& bounds) {
     if (!theme_ || !dc_) return;
     auto fill = high_contrast_ ? theme_->bg : dark_ ? HexColor(0x2B2B2B) : HexColor(0xEDF1EA);
-    FillRoundedRect(bounds, Px(8.0f), fill);
-    StrokeRoundedRect(bounds, Px(8.0f), theme_->stroke_divider);
+    FillRoundedRect(bounds, Px(theme_->radius_control), fill);
+    StrokeRoundedRect(bounds, Px(theme_->radius_control), theme_->stroke_divider);
 }
 
 void Painter::DrawSegmentedItem(const SegmentedItemSpec& spec) {

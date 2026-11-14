@@ -601,6 +601,36 @@ DragVisualFactory g_drag_visual_factory = nullptr;
 void SetDragVisualFactory(DragVisualFactory factory) { g_drag_visual_factory = factory; }
 
 namespace {
+std::mutex g_visual_mu;
+HWND g_visual_hwnd = nullptr;
+HWND g_visual_tip_hwnd = nullptr;
+RECT g_visual_bounds{};
+} // namespace
+
+void SetDragVisualBounds(HWND visual, const RECT* screen_rect) {
+    HWND repaint = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_visual_mu);
+        if (!screen_rect && visual != g_visual_hwnd) return;
+        if (screen_rect && visual == g_visual_hwnd && EqualRect(screen_rect, &g_visual_bounds)) return;
+        g_visual_hwnd = screen_rect ? visual : nullptr;
+        g_visual_bounds = screen_rect ? *screen_rect : RECT{};
+        repaint = g_visual_tip_hwnd;
+        if (!screen_rect) g_visual_tip_hwnd = nullptr;
+    }
+    // The stack's spring can move after the last OLE DragOver callback.
+    if (repaint && IsWindow(repaint)) InvalidateRect(repaint, nullptr, FALSE);
+}
+
+bool GetDragVisualBounds(HWND tip_window, RECT& screen_rect) {
+    std::lock_guard<std::mutex> lock(g_visual_mu);
+    if (!g_visual_hwnd) return false;
+    g_visual_tip_hwnd = tip_window;
+    screen_rect = g_visual_bounds;
+    return true;
+}
+
+namespace {
 // UI threads only, but windows may run on their own: keep it locked.
 std::mutex g_land_mu;
 bool g_land_expect = false;

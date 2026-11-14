@@ -20,8 +20,8 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
     auto draw_card=[&](D2D1_RECT_F r) {
         if(r.bottom<=r.top) return;
         MakeBrush(dc,WithAlpha(theme.surface_card,card_alpha_),brFillInput_); MakeBrush(dc,theme.stroke_card,brStrokeCard_);
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r,8*scale_,8*scale_),brFillInput_.get());
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(r,8*scale_,8*scale_),brStrokeCard_.get(),1);
+        dc->FillRoundedRectangle(D2D1::RoundedRect(r,theme.radius_control * scale_,theme.radius_control * scale_),brFillInput_.get());
+        dc->DrawRoundedRectangle(D2D1::RoundedRect(r,theme.radius_control * scale_,theme.radius_control * scale_),brStrokeCard_.get(),1);
     };
     auto divider=[&](D2D1_RECT_F r) {
         MakeBrush(dc,theme.stroke_divider,brStrokeDivider_);
@@ -36,7 +36,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             std::find(vm.settings_ai_marks.begin(),vm.settings_ai_marks.end(),title)!=vm.settings_ai_marks.end();
         if(ai_mark) {
             MakeBrush(dc,WithAlpha(theme.accent,0.08f),brFillHover_);
-            FillRoundedRect(dc,brFillHover_.get(),r.left+1*scale_,r.top+1*scale_,r.right-r.left-2*scale_,r.bottom-r.top-2*scale_,7*scale_);
+            FillRoundedRect(dc,brFillHover_.get(),r.left+1*scale_,r.top+1*scale_,r.right-r.left-2*scale_,r.bottom-r.top-2*scale_,theme.radius_control * scale_);
             MakeBrush(dc,theme.accent,brAccent_);
             dc->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(r.left+1*scale_,r.top+9*scale_,r.left+4*scale_,(std::min)(r.bottom,r.top+56*scale_)-9*scale_),
                 1.5f*scale_,1.5f*scale_),brAccent_.get());
@@ -61,7 +61,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
                 const float h=17*scale_,y=r.top+22*scale_-h/2;
                 if(x+w<=right) {
                     MakeBrush(dc,WithAlpha(theme.accent,0.16f),brFillHover_);
-                    dc->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(x,y,x+w,y+h),8*scale_,8*scale_),brFillHover_.get());
+                    dc->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(x,y,x+w,y+h),theme.radius_control * scale_,theme.radius_control * scale_),brFillHover_.get());
                     DrawAiIcon(dc,AiIcon::Spark,D2D1::RectF(x+4*scale_,y+3*scale_,x+15*scale_,y+14*scale_),theme.accent);
                     pl->SetMaxHeight(h);
                     MakeBrush(dc,theme.accent,brAccent_);
@@ -88,7 +88,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
         if(r.bottom<=r.top) return;
         if(IsHovered(vm,H::SettingsToggle,hit)) {
             MakeBrush(dc,theme.fill_hover,brFillHover_);
-            FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,6*scale_);
+            FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,theme.radius_control * scale_);
         }
         label(r,l10n::Get(title),l10n::Get(desc),icon,text_right,hit==15 ? 43.0f : 21.0f);
         fluent::ControlState state{}; state.checked=on; state.hovered=IsHovered(vm,H::SettingsToggle,hit);
@@ -103,7 +103,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
         if(own_card) draw_card(r);
         if(IsHovered(vm,H::SettingsDisclosure,id)) {
             MakeBrush(dc,theme.fill_hover,brFillHover_);
-            FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,6*scale_);
+            FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,theme.radius_control * scale_);
         }
         label(r,l10n::Get(title),l10n::Get(desc),icon);
         DrawIconText(r.right-38*scale_,r.top+22*scale_,18*scale_,18*scale_,
@@ -178,7 +178,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             for(const auto& group:lay.group) if(group.top<=band.top && group.bottom>=band.bottom && group.bottom>group.top) card=group;
             ComPtr<ID2D1Factory> factory; dc->GetFactory(&factory);
             ComPtr<ID2D1RoundedRectangleGeometry> clip;
-            if(factory.get()) factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card,8*scale_,8*scale_),&clip);
+            if(factory.get()) factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card,theme.radius_control * scale_,theme.radius_control * scale_),&clip);
             if(clip.get()) dc->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(),clip.get()),nullptr);
             MakeBrush(dc,WithAlpha(theme.text,vm.dark ? 0.035f : 0.024f),brFillHover_);
             dc->FillRectangle(D2D1::RectF(band.left+1,band.top,band.right-1,band.bottom),brFillHover_.get());
@@ -206,13 +206,13 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             const auto r=lay.theme_tile[i];auto preview=r;preview.bottom-=22*scale_;
             const bool selected=vm.settings_theme==theme_values[i];
             MakeBrush(dc,i==0 ? HexColor(0xF1F3EE) : HexColor(0x1A1A1A),brFillHover_);
-            dc->FillRoundedRectangle(D2D1::RoundedRect(preview,5*scale_,5*scale_),brFillHover_.get());
+            dc->FillRoundedRectangle(D2D1::RoundedRect(preview,theme.radius_control * scale_,theme.radius_control * scale_),brFillHover_.get());
             MakeBrush(dc,i==0 ? HexColor(0xFFFFFF) : HexColor(0x333333),brFillHover_);
-            FillRoundedRect(dc,brFillHover_.get(),preview.left+7*scale_,preview.top+8*scale_,preview.right-preview.left-14*scale_,8*scale_,2*scale_);
-            FillRoundedRect(dc,brFillHover_.get(),preview.left+7*scale_,preview.top+21*scale_,14*scale_,preview.bottom-preview.top-28*scale_,2*scale_);
+            FillRoundedRect(dc,brFillHover_.get(),preview.left+7*scale_,preview.top+8*scale_,preview.right-preview.left-14*scale_,8*scale_,theme.radius_control*scale_);
+            FillRoundedRect(dc,brFillHover_.get(),preview.left+7*scale_,preview.top+21*scale_,14*scale_,preview.bottom-preview.top-28*scale_,theme.radius_control*scale_);
             if(i==2) {MakeBrush(dc,HexColor(0xF1F3EE),brFillHover_); FillRect(dc,brFillHover_.get(),preview.left+7*scale_,preview.top+8*scale_,(preview.right-preview.left)/2-7*scale_,preview.bottom-preview.top-15*scale_);}
             MakeBrush(dc,selected ? theme.accent : IsHovered(vm,H::SettingsTheme,theme_values[i]) ? theme.text_secondary : theme.stroke_card,brStrokeCard_);
-            dc->DrawRoundedRectangle(D2D1::RoundedRect(preview,5*scale_,5*scale_),brStrokeCard_.get(),selected ? 2*scale_ : 1);
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(preview,theme.radius_control * scale_,theme.radius_control * scale_),brStrokeCard_.get(),selected ? 2*scale_ : 1);
             if(selected) DrawIconText(preview.right-23*scale_,preview.top+3*scale_,20*scale_,20*scale_,L"\xE73E",L"",theme.accent,0.7f);
             painter_.DrawText(l10n::Get(theme_names[i]),D2D1::RectF(r.left,preview.bottom+2*scale_,r.right,r.bottom),compositor_->SmallFormat(),theme.text,fluent::HorizontalAlignment::Center);
         }
@@ -233,9 +233,9 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
                 label(head_row,l10n::Get(I::AccentCustomTitle),l10n::Get(I::AccentCustomDesc),L"\xEB3C",swatch.left-12*scale_);
                 const auto chip=D2D1::RectF(swatch.left,swatch.top,swatch.left+(swatch.bottom-swatch.top),swatch.bottom);
                 MakeBrush(dc,current,brAccent_);
-                dc->FillRoundedRectangle(D2D1::RoundedRect(chip,6*scale_,6*scale_),brAccent_.get());
+                dc->FillRoundedRectangle(D2D1::RoundedRect(chip,theme.radius_control * scale_,theme.radius_control * scale_),brAccent_.get());
                 MakeBrush(dc,WithAlpha(theme.text,0.14f),brStrokeCard_);
-                dc->DrawRoundedRectangle(D2D1::RoundedRect(chip,6*scale_,6*scale_),brStrokeCard_.get(),1);
+                dc->DrawRoundedRectangle(D2D1::RoundedRect(chip,theme.radius_control * scale_,theme.radius_control * scale_),brStrokeCard_.get(),1);
                 wchar_t hex[16]{};
                 swprintf_s(hex,L"#%02X%02X%02X",static_cast<unsigned>(std::lround(current.r*255)),
                     static_cast<unsigned>(std::lround(current.g*255)),static_cast<unsigned>(std::lround(current.b*255)));
@@ -304,7 +304,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             auto background=BlendOver(WithAlpha(theme.accent,tint[i]),theme.surface_title);
             if(!enabled) background=BlendOver(WithAlpha(theme.surface_sheet,0.6f),background);
             MakeBrush(dc,background,brFillHover_);
-            dc->FillRoundedRectangle(D2D1::RoundedRect(preview,6*scale_,6*scale_),brFillHover_.get());
+            dc->FillRoundedRectangle(D2D1::RoundedRect(preview,theme.radius_control * scale_,theme.radius_control * scale_),brFillHover_.get());
             // A small window silhouette explains the material, not a fake DWM surface.
             dc->PushAxisAlignedClip(preview,D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
             if(i==1 || i==3) {
@@ -316,16 +316,16 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             auto window=D2D1::RectF(preview.left+inset,preview.top+9*scale_,preview.right-inset,preview.bottom-9*scale_);
             const float plate_alpha=i==1 ? 0.48f : i==3 ? 0.72f : 0.96f;
             MakeBrush(dc,WithAlpha(theme.surface_card,plate_alpha),brFillInput_);
-            dc->FillRoundedRectangle(D2D1::RoundedRect(window,3*scale_,3*scale_),brFillInput_.get());
+            dc->FillRoundedRectangle(D2D1::RoundedRect(window,theme.radius_control*scale_,theme.radius_control*scale_),brFillInput_.get());
             MakeBrush(dc,WithAlpha(theme.text_secondary,0.30f),brTextSecondary_);
             FillRoundedRect(dc,brTextSecondary_.get(),window.left+6*scale_,window.top+6*scale_,
                 (std::min)(18*scale_,(window.right-window.left)*0.18f),2*scale_,scale_);
             MakeBrush(dc,WithAlpha(theme.accent,0.10f),brFillHover_);
             FillRoundedRect(dc,brFillHover_.get(),window.right-22*scale_,window.top+5*scale_,
-                16*scale_,window.bottom-window.top-10*scale_,2*scale_);
+                16*scale_,window.bottom-window.top-10*scale_,theme.radius_control*scale_);
             dc->PopAxisAlignedClip();
             MakeBrush(dc,selected ? theme.accent : hovered ? theme.text_secondary : theme.stroke_card,brStrokeCard_);
-            dc->DrawRoundedRectangle(D2D1::RoundedRect(preview,6*scale_,6*scale_),brStrokeCard_.get(),
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(preview,theme.radius_control * scale_,theme.radius_control * scale_),brStrokeCard_.get(),
                 selected ? 1.5f*scale_ : scale_);
             if(selected) {
                 const auto center=D2D1::Point2F(preview.right-9*scale_,preview.bottom-9*scale_);
@@ -358,11 +358,11 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
         const auto& preview = lay.wallpaper_preview;
         MakeBrush(dc, theme.fill_hover, brFillHover_);
         FillRoundedRect(dc, brFillHover_.get(), preview.left, preview.top,
-                        preview.right - preview.left, preview.bottom - preview.top, 6.0f * scale_);
+                        preview.right - preview.left, preview.bottom - preview.top, theme.radius_control * scale_);
         if (!vm.background_image.empty())
             material_.DrawSourceCover(dc, preview, vm.background_image);
         MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(preview, 6.0f * scale_, 6.0f * scale_),
+        dc->DrawRoundedRectangle(D2D1::RoundedRect(preview, theme.radius_control * scale_, theme.radius_control * scale_),
                                  brStrokeCard_.get(), 1.0f);
         const float text_left = preview.right + 12.0f * scale_;
         const bool compact_wallpaper = lay.wallpaper_choose.top >
@@ -409,7 +409,7 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
             const bool master_on=vm.settings_integration_enabled;
             auto hover_fill=[&](D2D1_RECT_F r) {
                 MakeBrush(dc,theme.fill_hover,brFillHover_);
-                FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,6*scale_);
+                FillRoundedRect(dc,brFillHover_.get(),r.left+2*scale_,r.top+2*scale_,r.right-r.left-4*scale_,r.bottom-r.top-4*scale_,theme.radius_control * scale_);
             };
             {
                 const auto r=lay.default_manager_row;
@@ -463,8 +463,8 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
                 const float alpha=master_on ? 1.0f : 0.55f;
                 MakeBrush(dc,WithAlpha(theme.fill_input,theme.fill_input.a*alpha),brFillInput_);
                 MakeBrush(dc,WithAlpha(theme.stroke_card,theme.stroke_card.a*alpha),brStrokeCard_);
-                dc->FillRoundedRectangle(D2D1::RoundedRect(r,6*scale_,6*scale_),brFillInput_.get());
-                dc->DrawRoundedRectangle(D2D1::RoundedRect(r,6*scale_,6*scale_),brStrokeCard_.get(),1);
+                dc->FillRoundedRectangle(D2D1::RoundedRect(r,theme.radius_control * scale_,theme.radius_control * scale_),brFillInput_.get());
+                dc->DrawRoundedRectangle(D2D1::RoundedRect(r,theme.radius_control * scale_,theme.radius_control * scale_),brStrokeCard_.get(),1);
                 const float mid=(r.top+r.bottom)/2;
                 DrawIconText(r.left+10*scale_,mid-8*scale_,16*scale_,16*scale_,cover_icons[i],L"",
                     master_on ? theme.accent : WithAlpha(theme.text_secondary,theme.text_secondary.a*0.5f),0.95f);

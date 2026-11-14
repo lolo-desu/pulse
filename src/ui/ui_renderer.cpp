@@ -6,6 +6,8 @@
 #include "snack_style.h"
 #include "command_icons.h"
 #include "toolbar_layout.h"
+#include "drag_drop.h"
+#include "drag_feedback_layout.h"
 #include "ui_renderer_internal.h"
 #include "../common/localization.h"
 #include "../common/display_path.h"
@@ -222,7 +224,8 @@ float MainRenderer::DetailsPanelWidth(float window_w) const {
     const float max_dip = MaxDetailsWidthDip(window_dip, sidebar_width_dip_,
                                              (window_dip < kSidebarRailWindowDip || sidebar_collapsed_),
                                              2.0f * margin_ / scale_);
-    return std::round(((std::min)(details_width_, max_dip) * scale_ + margin_) * open);
+    const float gap = ClassicRibbon() ? 0.0f : margin_;
+    return std::round(((std::min)(details_width_, max_dip) * scale_ + gap) * open);
 }
 
 float MainRenderer::SidebarMaxWidthDip(float window_w) const {
@@ -238,10 +241,11 @@ float MainRenderer::DetailsMaxWidthDip(float window_w) const {
 }
 
 D2D1_RECT_F MainRenderer::ContentRect(float w, float h) const {
-    float left = EffectiveSidebarWidth(w) + margin_;
-    float top = title_bar_height_ + toolbar_height_ + margin_;
-    float bottom = h - status_height_ - margin_;
-    return D2D1::RectF(left, top, w - margin_ - DetailsPanelWidth(w), bottom);
+    const float inset = ClassicRibbon() ? 0.0f : margin_;
+    float left = EffectiveSidebarWidth(w) + inset;
+    float top = title_bar_height_ + toolbar_height_ + inset;
+    float bottom = h - status_height_ - inset;
+    return D2D1::RectF(left, top, w - inset - DetailsPanelWidth(w), bottom);
 }
 D2D1_RECT_F MainRenderer::TitleBarRect(float w) const {
     return D2D1::RectF(0, 0, w, title_bar_height_);
@@ -1262,6 +1266,15 @@ void MainRenderer::Render(const WindowViewModel& vm, const D2D1_RECT_F& rect,
                            AiFloatingArea(rect.right, rect.bottom), scale_, motion_now_);
         }
         if (peek) DrawSidebarPeek(vm, rect, theme);
+        if (ClassicRibbon()) {
+            // Explorer has shared separators, rather than a frame around every pane.
+            MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
+            const float top = title_bar_height_ + toolbar_height_;
+            const float bottom = rect.bottom - status_height_;
+            const float divider = EffectiveSidebarWidth(rect.right);
+            FillRect(dc, brStrokeDivider_.get(), divider, top, scale_, bottom - top);
+            FillRect(dc, brStrokeDivider_.get(), 0, bottom, rect.right, scale_);
+        }
         if (!embedded_) DrawStatusBar(vm, rect, theme);
         if (!peek) DrawTrayCompareCard(vm, theme);
     }
@@ -1380,10 +1393,49 @@ void MainRenderer::Render(const WindowViewModel& vm, const D2D1_RECT_F& rect,
         IDWriteTextFormat* fmt = compositor_->SmallFormat();
         float tw = MeasureLayoutText(compositor_, compositor_->DwriteFactory(), fmt,
                                      vm.drag_badge);
-        float bw = tw + 20 * scale_;
+        const HWND badge_window = compositor_->Hwnd();
+        POINT client_origin{};
+        const bool screen_coordinates = badge_window && ClientToScreen(badge_window, &client_origin);
+        const POINT cursor{static_cast<LONG>(std::lround(vm.drag_badge_x)),
+                           static_cast<LONG>(std::lround(vm.drag_badge_y))};
+        RECT viewport{static_cast<LONG>(std::ceil(rect.left + margin_)),
+                      static_cast<LONG>(std::ceil(rect.top + margin_)),
+                      static_cast<LONG>(std::floor(rect.right - margin_)),
+                      static_cast<LONG>(std::floor(rect.bottom - margin_))};
+        if (screen_coordinates) {
+            const POINT screen_cursor{cursor.x + client_origin.x, cursor.y + client_origin.y};
+            MONITORINFO monitor{sizeof(monitor)};
+            if (GetMonitorInfoW(MonitorFromPoint(screen_cursor, MONITOR_DEFAULTTONEAREST), &monitor)) {
+                OffsetRect(&monitor.rcWork, -client_origin.x, -client_origin.y);
+                RECT visible{};
+                if (IntersectRect(&visible, &viewport, &monitor.rcWork)) viewport = visible;
+            }
+        }
+        float bw = std::min(tw + 20 * scale_, static_cast<float>(std::max(0L, viewport.right - viewport.left)));
         float bh = 24 * scale_;
-        float bx = std::min(vm.drag_badge_x + 14 * scale_, rect.right - bw - margin_);
-        float by = std::min(vm.drag_badge_y + 16 * scale_, rect.bottom - bh - margin_);
+        tw = std::max(0.0f, bw - 20 * scale_);
+        ComPtr<IDWriteTextLayout> wrapped_badge;
+        if (SUCCEEDED(compositor_->DwriteFactory()->CreateTextLayout(vm.drag_badge.c_str(),
+                static_cast<UINT32>(vm.drag_badge.size()), fmt, tw,
+                static_cast<float>(std::max(0L, viewport.bottom - viewport.top)), &wrapped_badge))) {
+            wrapped_badge->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+            wrapped_badge->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+            DWRITE_TEXT_METRICS metrics{};
+            if (SUCCEEDED(wrapped_badge->GetMetrics(&metrics)))
+                bh = std::max(bh, std::ceil(metrics.height + 8 * scale_));
+        }
+        RECT visual{};
+        const bool has_visual = screen_coordinates && GetDragVisualBounds(badge_window, visual);
+        if (has_visual) OffsetRect(&visual, -client_origin.x, -client_origin.y);
+        const POINT preferred{cursor.x + static_cast<LONG>(std::ceil(14 * scale_)),
+                              cursor.y + static_cast<LONG>(std::ceil(16 * scale_))};
+        const RECT placed = PlaceDragDropTip(preferred,
+            {static_cast<LONG>(std::ceil(bw)), static_cast<LONG>(std::ceil(bh))}, viewport,
+            has_visual ? &visual : nullptr, static_cast<LONG>(std::ceil(8 * scale_)));
+        const float bx = static_cast<float>(placed.left);
+        const float by = static_cast<float>(placed.top);
+        bw = static_cast<float>(placed.right - placed.left);
+        bh = static_cast<float>(placed.bottom - placed.top);
         D2D1_RECT_F brc = D2D1::RectF(bx, by, bx + bw, by + bh);
         MakeBrush(dc, theme.surface_flyout, brFillHover_);
         FillRoundedRect(dc, brFillHover_.get(), brc.left, brc.top, bw, bh, 4 * scale_);
@@ -1401,7 +1453,14 @@ void MainRenderer::Render(const WindowViewModel& vm, const D2D1_RECT_F& rect,
         MakeBrush(dc, theme.text, brText_);
         const D2D1_COLOR_F saved_badge_bg = text_background_;
         text_background_ = BlendOver(theme.surface_flyout, theme.bg);
-        DrawTextRect(dc, fmt, brText_.get(), vm.drag_badge, bx + 10 * scale_, by, tw, bh);
+        if (wrapped_badge.get() && bh > 24 * scale_) {
+            dc->PushAxisAlignedClip(brc, D2D1_ANTIALIAS_MODE_ALIASED);
+            dc->DrawTextLayout(D2D1::Point2F(bx + 10 * scale_, by + 4 * scale_),
+                               wrapped_badge.get(), brText_.get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            dc->PopAxisAlignedClip();
+        } else {
+            DrawTextRect(dc, fmt, brText_.get(), vm.drag_badge, bx + 10 * scale_, by, tw, bh);
+        }
         text_background_ = saved_badge_bg;
     }
 

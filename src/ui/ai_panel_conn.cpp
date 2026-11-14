@@ -69,7 +69,7 @@ float AiPanelView::DrawConnCard(Compositor* compositor, const AiPanelViewModel& 
     if (!conn_ || !conn_->view) return 0.0f;
     ConnGeom& g = *conn_;
     const AiConnView& v = *g.view;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     {
         const float font_scale = typography::UiFontScale();
         if (g.fmt_scale != s || g.fmt_font_scale != font_scale || !g.link) {

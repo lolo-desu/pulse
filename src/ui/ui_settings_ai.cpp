@@ -30,8 +30,8 @@ void MainRenderer::DrawSettingsAi(const WindowViewModel& vm, const D2D1_RECT_F& 
         if (r.bottom <= r.top) return;
         MakeBrush(dc, WithAlpha(theme.surface_card, card_alpha_), brFillInput_);
         MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-        dc->FillRoundedRectangle(D2D1::RoundedRect(r, 8*s, 8*s), brFillInput_.get());
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(r, 8*s, 8*s), brStrokeCard_.get(), 1);
+        dc->FillRoundedRectangle(D2D1::RoundedRect(r, theme.radius_control * s, theme.radius_control * s), brFillInput_.get());
+        dc->DrawRoundedRectangle(D2D1::RoundedRect(r, theme.radius_control * s, theme.radius_control * s), brStrokeCard_.get(), 1);
     };
     auto divider_below = [&](D2D1_RECT_F r) {
         if (r.bottom <= r.top) return;
@@ -66,7 +66,7 @@ void MainRenderer::DrawSettingsAi(const WindowViewModel& vm, const D2D1_RECT_F& 
     if (hovered(kAiToggle)) {
         MakeBrush(dc, theme.fill_hover, brFillHover_);
         const auto& r = o.enable_row;
-        FillRoundedRect(dc, brFillHover_.get(), r.left + 4*s, r.top + 4*s, r.right - r.left - 8*s, r.bottom - r.top - 6*s, 4*s);
+        FillRoundedRect(dc, brFillHover_.get(), r.left + 4*s, r.top + 4*s, r.right - r.left - 8*s, r.bottom - r.top - 6*s, theme.radius_control * s);
     }
     row_text(o.enable_row, L"\xE99A", ai_text::EnableTitle(), v->status, o.toggle.left);
     {
@@ -81,7 +81,7 @@ void MainRenderer::DrawSettingsAi(const WindowViewModel& vm, const D2D1_RECT_F& 
     if (o.broken.bottom > o.broken.top) {
         const auto& n = o.broken;
         MakeBrush(dc, theme.fill_hover, brFillHover_);
-        FillRoundedRect(dc, brFillHover_.get(), n.left, n.top, n.right - n.left, n.bottom - n.top, 6*s);
+        FillRoundedRect(dc, brFillHover_.get(), n.left, n.top, n.right - n.left, n.bottom - n.top, theme.radius_control * s);
         MakeBrush(dc, warning, brFillSelected_);
         FillRoundedRect(dc, brFillSelected_.get(), n.left, n.top + 6*s, 3*s, n.bottom - n.top - 12*s, 1.5f*s);
         painter_.DrawWrappedCaption(ai_text::Broken(), D2D1::Point2F(n.left + 12*s, n.top + 6*s),
@@ -99,7 +99,7 @@ void MainRenderer::DrawSettingsAi(const WindowViewModel& vm, const D2D1_RECT_F& 
             const int target = kAiGroupBase + static_cast<int>(i);
             if (!g.locked && hovered(target)) {
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
-                FillRoundedRect(dc, brFillHover_.get(), r.left + 4*s, r.top + 4*s, r.right - r.left - 8*s, r.bottom - r.top - 6*s, 4*s);
+                FillRoundedRect(dc, brFillHover_.get(), r.left + 4*s, r.top + 4*s, r.right - r.left - 8*s, r.bottom - r.top - 6*s, theme.radius_control * s);
             }
             const float controls = g.locked ? r.right - 16*s : o.group_toggles[i].left;
             const float right = controls - 14*s;

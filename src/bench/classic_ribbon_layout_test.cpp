@@ -27,6 +27,7 @@ bool Check(float width, float scale, float filter, bool drop) {
         }
     }
     if (!Visible(l.address) || !Visible(l.search)) return false;
+    if (Visible(l.overflow) || std::abs(l.filter.right - (width - 8 * scale)) > 0.01f) return false;
     if (filter > 0 && l.filter.right - l.filter.left < 100 * scale) return false;
     for (const auto& nav : l.navigation) {
         const float x = (nav.left + nav.right) / 2, y = (nav.top + nav.bottom) / 2;

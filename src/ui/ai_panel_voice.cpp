@@ -85,7 +85,7 @@ float Bars(const Ctx& c, const float* levels, size_t n, float x, float mid, floa
     for (size_t i = 0; i < n; ++i) {
         const float h = (3.0f + std::clamp(levels[i], 0.0f, 1.0f) * (max_h - 3.0f)) * s;
         const D2D1_RECT_F r = D2D1::RectF(x, mid - h * 0.5f, x + 3.0f * s, mid + h * 0.5f);
-        c.Fill(r, 1.5f * s, color);
+        c.dc->FillRoundedRectangle(D2D1::RoundedRect(r, 1.5f * s, 1.5f * s), c.B(color));
         x += 5.0f * s;
     }
     return static_cast<float>(n) * 5.0f * s - 2.0f * s;
@@ -130,7 +130,7 @@ AiPanelHit AiPanelView::VoiceHitTest(float x, float y) const {
 
 void AiPanelView::DrawMic(Compositor* compositor, const AiPanelViewModel& vm, const Palette& pal, float s, uint64_t now_ms) {
     if (!vm.voice.available) return;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     const AiVoiceView& v = vm.voice;
     const bool moving = animate_ && motion::SystemAnimationsEnabled();
     // .mic.shake: ±3 px at 20/40/60/80%, the icon red for the first 60% of 1.2 s.
@@ -186,7 +186,7 @@ void AiPanelView::DrawVoiceInput(Compositor* compositor, const AiPanelViewModel&
                                  float s, uint64_t now_ms) {
     if (!voice_) voice_ = std::make_shared<VoiceGeom>();
     VoiceGeom& g = *voice_;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     const AiVoiceView& v = vm.voice;
     const bool moving = animate_ && motion::SystemAnimationsEnabled();
     const D2D1_RECT_F r = input_rect_;
@@ -274,7 +274,7 @@ void AiPanelView::DrawVoiceMenu(Compositor* compositor, const AiPanelViewModel& 
     }
     if (t < 1.0f) decor_ = true;
     const AiVoiceMenuView& v = *g.menu_view;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     // .vmenu: width 312, right -40 and bottom 36 from the .vsel, padding 6.
     const float w = 312.0f * s;
     const float pad = 6.0f * s;
@@ -424,7 +424,7 @@ void AiPanelView::DrawVoiceCard(Compositor* compositor, const AiPanelViewModel& 
     }
     if (t < 1.0f) decor_ = true;
     const AiVoiceCardView& v = *g.card_view;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     auto hit = [&](const D2D1_RECT_F& r, AiPanelPart part, int index = -1) {
         if (want) g.card_hits.push_back({r, {part, index}});
     };

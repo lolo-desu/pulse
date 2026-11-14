@@ -331,7 +331,7 @@ void AiListPainter::Background(const D2D1_RECT_F& bg, float inset, float radius)
     if (row_flash_ <= 0.0f && row_bump_ <= 0.0f && row_done_ <= 0.0f && row_ring_ <= 0.0f) return;
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(dc->CreateSolidColorBrush(theme_.accent, &brush))) return;
-    Ctx c{compositor_, dc, brush, s_};
+    Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
     const D2D1_RECT_F r = D2D1::RectF(bg.left + inset, bg.top + s_, bg.right - inset, bg.bottom - s_);
     D2D1_COLOR_F accent = theme_.accent;
     accent.a = 1.0f;
@@ -398,7 +398,7 @@ void AiListPainter::AfterName(float left, float right, float text_top, float tex
         if (age < 0.0f) return;
         ID2D1SolidColorBrush* brush = nullptr;
         if (FAILED(dc->CreateSolidColorBrush(theme_.accent, &brush))) return;
-        Ctx c{compositor_, dc, brush, s_};
+        Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
         float a = Clamp01(age / 300.0f);
         if (o_->end_ms) a = (std::min)(a, Clamp01(Since(o_->end_ms, now_) / 300.0f));
         const float x = left + 4.0f * s_;
@@ -429,7 +429,7 @@ void AiListPainter::AfterName(float left, float right, float text_top, float tex
     const float e = Ease(show);
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(dc->CreateSolidColorBrush(theme_.accent, &brush))) return;
-    Ctx c{compositor_, dc, brush, s_};
+    Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
     // 11.5 semibold, h 20, r 10, padding 0 8 0 6, arrow 12, gap 4; 10 after the name.
     const float tw = c.Measure(d->second.label, f.tag);
     const float full_w = 6.0f * s_ + 12.0f * s_ + 4.0f * s_ + tw + 8.0f * s_;
@@ -467,7 +467,7 @@ float AiListPainter::AfterNameReserve() const {
     if (!f.tag) return 0.0f;
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(compositor_->Dc()->CreateSolidColorBrush(theme_.accent, &brush))) return 0.0f;
-    Ctx c{compositor_, compositor_->Dc(), brush, s_};
+    Ctx c{compositor_, compositor_->Dc(), brush, s_, theme_.radius_control};
     const float w = 6.0f * s_ + 12.0f * s_ + 4.0f * s_ + c.Measure(d->second.label, f.tag) + 8.0f * s_;
     brush->Release();
     return 6.0f * s_ + 4.0f * s_ + w;
@@ -479,7 +479,7 @@ void AiListPainter::Flights(const D2D1_RECT_F& list,
     ID2D1DeviceContext* dc = compositor_->Dc();
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(dc->CreateSolidColorBrush(theme_.accent, &brush))) return;
-    Ctx c{compositor_, dc, brush, s_};
+    Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
     const bool dark = theme_.bg.r < 0.5f;
     const D2D1_COLOR_F card = Over(theme_.surface_card, Over(theme_.bg, dark ? Hex(0x1c1e1d) : Hex(0xffffff)));
     D2D1::Matrix3x2F base;
@@ -540,7 +540,7 @@ void AiListPainter::Margin(const D2D1_RECT_F& list) {
     accent.a = 1.0f;
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(dc->CreateSolidColorBrush(accent, &brush))) return;
-    Ctx c{compositor_, dc, brush, s_};
+    Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
     const float dt = st_->last_frame && now > st_->last_frame ? static_cast<float>(now - st_->last_frame) : 16.0f;
 
     // .hprog: 2 px under the column header, a 30% accent gradient sweeping
@@ -629,7 +629,7 @@ void AiListPainter::Watch(float right, float top, float h, float min_left) {
     if (!f.watch) return;
     ID2D1SolidColorBrush* brush = nullptr;
     if (FAILED(dc->CreateSolidColorBrush(theme_.accent, &brush))) return;
-    Ctx c{compositor_, dc, brush, s_};
+    Ctx c{compositor_, dc, brush, s_, theme_.radius_control};
     const bool dark = theme_.bg.r < 0.5f;
     const size_t k = (std::max<size_t>)(AiListReadK(*o_, now), 1);
     std::wstring text = o_->watch_text;

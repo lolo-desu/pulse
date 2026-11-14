@@ -74,8 +74,8 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
         for (size_t i = 0; i < caps.size(); ++i) {
             const float w = ShortcutCapWidth(&painter_, caps[i], s);
             const auto r = D2D1::RectF(x, mid - h * 0.5f, x + w, mid + h * 0.5f);
-            painter_.FillRoundedRect(r, 4 * s, face);
-            painter_.StrokeRoundedRect(r, 4 * s, edge, 1);
+            painter_.FillRoundedRect(r, theme.radius_control * s, face);
+            painter_.StrokeRoundedRect(r, theme.radius_control * s, edge, 1);
             // A slightly heavier bottom edge reads as a key.
             painter_.FillRoundedRect(D2D1::RectF(r.left + 2 * s, r.bottom - 1.5f * s, r.right - 2 * s, r.bottom), 0,
                                      WithAlpha(edge, 0.6f));
@@ -124,7 +124,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
                                          theme.text);
         }
         if (o.search_clear.right > o.search_clear.left) {
-            if (hot(kScSearchClear)) painter_.FillRoundedRect(o.search_clear, 4 * s, theme.fill_hover);
+            if (hot(kScSearchClear)) painter_.FillRoundedRect(o.search_clear, theme.radius_control * s, theme.fill_hover);
             const float mid_x = (o.search_clear.left + o.search_clear.right) * 0.5f;
             const float mid_y = (o.search_clear.top + o.search_clear.bottom) * 0.5f;
             DrawIconText(mid_x - 8 * s, mid_y - 8 * s, 16 * s, 16 * s, kIconClose, L"x", theme.text_secondary, 0.55f);
@@ -142,8 +142,8 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
     {
         const int issues = v->red + v->amber;
         const D2D1_COLOR_F tone = issues ? (v->red ? red : amber) : v->probing ? theme.text_secondary : green;
-        painter_.FillRoundedRect(o.strip, 8 * s, WithAlpha(tone, dark ? 0.12f : 0.08f));
-        painter_.StrokeRoundedRect(o.strip, 8 * s, WithAlpha(tone, 0.30f), 1);
+        painter_.FillRoundedRect(o.strip, theme.radius_control * s, WithAlpha(tone, dark ? 0.12f : 0.08f));
+        painter_.StrokeRoundedRect(o.strip, theme.radius_control * s, WithAlpha(tone, 0.30f), 1);
         const float head_mid = o.strip.top + 22 * s;
         DrawIconText(o.strip.left + 10 * s, head_mid - 10 * s, 20 * s, 20 * s,
                      issues ? L"\xE7BA" : v->probing ? L"\xE895" : L"\xE73E", L"!", tone, 0.72f);
@@ -162,7 +162,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
         // 重新检测: a quiet caption button.
         const auto& r = o.recheck;
         const bool enabled = !v->probing;
-        if (enabled && hot(kScRecheck)) painter_.FillRoundedRect(r, 6 * s, theme.fill_hover);
+        if (enabled && hot(kScRecheck)) painter_.FillRoundedRect(r, theme.radius_control * s, theme.fill_hover);
         const D2D1_COLOR_F color = enabled ? theme.text_secondary : theme.text_disabled;
         const float mid = (r.top + r.bottom) * 0.5f;
         DrawIconText(r.left + 6 * s, mid - 8 * s, 16 * s, 16 * s, L"\xE72C", L"", color, 0.62f);
@@ -173,15 +173,15 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
     // ---- filter bar ---------------------------------------------------------------
     {
         const auto track = D2D1::RectF(o.seg[0].left - 3 * s, o.seg[0].top - 3 * s, o.seg[2].right + 3 * s, o.seg[2].bottom + 3 * s);
-        painter_.FillRoundedRect(track, 8 * s, subtle);
+        painter_.FillRoundedRect(track, theme.radius_control * s, subtle);
         for (int i = 0; i < 3; ++i) {
             const auto& r = o.seg[i];
             const bool on = v->filter == i;
             if (on) {
-                painter_.FillRoundedRect(r, 6 * s, dark ? WithAlpha(D2D1::ColorF(0xFFFFFF), 0.10f) : D2D1::ColorF(0xFFFFFF));
-                painter_.StrokeRoundedRect(r, 6 * s, theme.stroke_card, 1);
+                painter_.FillRoundedRect(r, theme.radius_control * s, dark ? WithAlpha(D2D1::ColorF(0xFFFFFF), 0.10f) : D2D1::ColorF(0xFFFFFF));
+                painter_.StrokeRoundedRect(r, theme.radius_control * s, theme.stroke_card, 1);
             } else if (hot(kScFilterBase + i)) {
-                painter_.FillRoundedRect(r, 6 * s, theme.fill_hover);
+                painter_.FillRoundedRect(r, theme.radius_control * s, theme.fill_hover);
             }
             D2D1_COLOR_F ink = on ? theme.text : theme.text_secondary;
             if (i == 1 && v->counts[1] > 0) ink = v->red ? red : amber;
@@ -197,8 +197,8 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
     for (const auto& card : o.cards) {
         if (card.rect.bottom < l.content.top || card.rect.top > l.content.bottom) continue;
         const auto& group = v->groups[static_cast<size_t>(card.group)];
-        painter_.FillRoundedRect(card.rect, 10 * s, theme.fill_input);
-        painter_.StrokeRoundedRect(card.rect, 10 * s, theme.stroke_card, 1);
+        painter_.FillRoundedRect(card.rect, theme.radius_control * s, theme.fill_input);
+        painter_.StrokeRoundedRect(card.rect, theme.radius_control * s, theme.stroke_card, 1);
         const float title_w = text_width(group.title, title_format);
         painter_.DrawText(group.title, D2D1::RectF(card.head.left + 16 * s, card.head.top, card.head.right - 16 * s, card.head.bottom),
                           title_format, theme.text);
@@ -207,7 +207,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
             const float bx = card.head.left + 16 * s + title_w + 8 * s;
             const float mid = (card.head.top + card.head.bottom) * 0.5f;
             const auto badge = D2D1::RectF(bx, mid - 9 * s, bx + (std::max)(18 * s, SysCtxTextWidth(&painter_, n, s) - 8 * s), mid + 9 * s);
-            painter_.FillRoundedRect(badge, 9 * s, level_color(group.level));
+            painter_.FillRoundedRect(badge, theme.radius_control * s, level_color(group.level));
             painter_.DrawText(n, badge, small_fmt, D2D1::ColorF(0xFFFFFF), fluent::HorizontalAlignment::Center);
         }
         painter_.FillRoundedRect(D2D1::RectF(card.head.left + 12 * s, card.head.bottom - 1, card.head.right - 12 * s, card.head.bottom),
@@ -225,12 +225,12 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
                 (v->pop.kind == ShortcutPopView::Record || v->pop.kind == ShortcutPopView::Range || v->pop.kind == ShortcutPopView::Info);
             if (row.level >= 2) {
                 const D2D1_COLOR_F c = level_color(row.level);
-                painter_.FillRoundedRect(r, 6 * s, WithAlpha(c, dark ? 0.14f : 0.08f));
+                painter_.FillRoundedRect(r, theme.radius_control * s, WithAlpha(c, dark ? 0.14f : 0.08f));
                 painter_.FillRoundedRect(D2D1::RectF(r.left, r.top + 7 * s, r.left + 3 * s, r.bottom - 7 * s), 1.5f * s, c);
             } else if (row.found || editing) {
-                painter_.FillRoundedRect(r, 6 * s, WithAlpha(theme.accent, dark ? 0.18f : 0.10f));
+                painter_.FillRoundedRect(r, theme.radius_control * s, WithAlpha(theme.accent, dark ? 0.18f : 0.10f));
             } else if (row_hot) {
-                painter_.FillRoundedRect(r, 6 * s, theme.fill_hover);
+                painter_.FillRoundedRect(r, theme.radius_control * s, theme.fill_hover);
             }
             // Name, then the 已修改 dot and the 全局 tag right after it.
             const float name_left = r.left + 12 * s;
@@ -246,7 +246,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
                 const float w = SysCtxTextWidth(&painter_, text, s) - 2 * s;
                 if (tx + w > rl.name_right) return;
                 const auto t = D2D1::RectF(tx, mid - 9 * s, tx + w, mid + 9 * s);
-                painter_.FillRoundedRect(t, 9 * s, subtle);
+                painter_.FillRoundedRect(t, theme.radius_control * s, subtle);
                 painter_.DrawText(text, t, small_fmt, theme.text_secondary, fluent::HorizontalAlignment::Center);
                 tx += w + 4 * s;
             };
@@ -256,7 +256,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
             if (row.range) {
                 if (!rl.keys.empty()) {
                     const auto& k = rl.keys.front();
-                    if (hot(kScKeyBase + row.action * 4)) painter_.FillRoundedRect(k, 6 * s, theme.fill_hover);
+                    if (hot(kScKeyBase + row.action * 4)) painter_.FillRoundedRect(k, theme.radius_control * s, theme.fill_hover);
                     const uint8_t level = row.bindings.empty() ? 0 : row.bindings.front().level;
                     draw_caps(ShortcutRangeCaps(row), k.left + 4 * s, mid, level, false);
                 }
@@ -264,7 +264,7 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
                 for (size_t k = 0; k < rl.keys.size() && k < row.bindings.size(); ++k) {
                     const auto& kr = rl.keys[k];
                     if (!row.fixed && hot(kScKeyBase + row.action * 4 + static_cast<int>(k)))
-                        painter_.FillRoundedRect(kr, 6 * s, theme.fill_hover);
+                        painter_.FillRoundedRect(kr, theme.radius_control * s, theme.fill_hover);
                     draw_caps(row.bindings[k].caps, kr.left + 4 * s, mid, row.bindings[k].level, row.fixed);
                     if (k + 1 < rl.keys.size())
                         painter_.DrawText(L"/", D2D1::RectF(kr.right, r.top, rl.keys[k + 1].left, r.bottom), small_fmt,
@@ -280,8 +280,8 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
             if (row.fixed && !rl.keys.empty())
                 DrawIconText(rl.keys.front().left - 20 * s, mid - 8 * s, 16 * s, 16 * s, L"\xE72E", L"", theme.text_disabled, 0.6f);
             if (rl.add.right > rl.add.left && (row_hot || row.bindings.empty())) {
-                if (add_hot) painter_.FillRoundedRect(rl.add, 6 * s, theme.fill_hover);
-                painter_.StrokeRoundedRect(rl.add, 6 * s, theme.stroke_card, 1);
+                if (add_hot) painter_.FillRoundedRect(rl.add, theme.radius_control * s, theme.fill_hover);
+                painter_.StrokeRoundedRect(rl.add, theme.radius_control * s, theme.stroke_card, 1);
                 const float ax = (rl.add.left + rl.add.right) * 0.5f;
                 DrawIconText(ax - 8 * s, mid - 8 * s, 16 * s, 16 * s, L"\xE710", L"+", theme.text_secondary, 0.55f);
             }
@@ -292,11 +292,11 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
     const auto& p = v->pop;
     if (p.kind != ShortcutPopView::None && o.pop.right > o.pop.left) {
         // A soft shadow, then the flyout surface.
-        painter_.FillRoundedRect(D2D1::RectF(o.pop.left - 1 * s, o.pop.top + 2 * s, o.pop.right + 1 * s, o.pop.bottom + 6 * s), 12 * s,
+        painter_.FillRoundedRect(D2D1::RectF(o.pop.left - 1 * s, o.pop.top + 2 * s, o.pop.right + 1 * s, o.pop.bottom + 6 * s), theme.radius_control * s,
                                  WithAlpha(D2D1::ColorF(0x000000), dark ? 0.35f : 0.10f));
         painter_.DrawMenuSurface(o.pop);
         painter_.DrawText(p.title, o.pop_title, title_format, theme.text);
-        if (hot(kScPopClose)) painter_.FillRoundedRect(o.pop_close, 4 * s, theme.fill_hover);
+        if (hot(kScPopClose)) painter_.FillRoundedRect(o.pop_close, theme.radius_control * s, theme.fill_hover);
         DrawIconText((o.pop_close.left + o.pop_close.right) * 0.5f - 8 * s, (o.pop_close.top + o.pop_close.bottom) * 0.5f - 8 * s,
                      16 * s, 16 * s, kIconClose, L"x", theme.text_secondary, 0.55f);
         if (o.pop_sub.right > o.pop_sub.left)
@@ -304,14 +304,14 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
                                         theme.text_secondary);
         for (size_t i = 0; i < o.pop_more.size() && i < p.more_items.size(); ++i) {
             const auto& r = o.pop_more[i];
-            if (hot(kScMoreBase + static_cast<int>(i))) painter_.FillRoundedRect(r, 6 * s, theme.fill_hover);
+            if (hot(kScMoreBase + static_cast<int>(i))) painter_.FillRoundedRect(r, theme.radius_control * s, theme.fill_hover);
             painter_.DrawText(p.more_items[i], D2D1::RectF(r.left + 10 * s, r.top, r.right - 10 * s, r.bottom),
                               compositor_->TextFormat(), static_cast<int>(i) == kScMoreReset ? red : theme.text);
         }
         if (o.pop_box.right > o.pop_box.left) {
             const bool live = p.kind == ShortcutPopView::Record || p.waiting;
-            painter_.FillRoundedRect(o.pop_box, 8 * s, subtle);
-            painter_.StrokeRoundedRect(o.pop_box, 8 * s, live ? theme.accent : theme.stroke_card, live ? 1.5f * s : 1.0f);
+            painter_.FillRoundedRect(o.pop_box, theme.radius_control * s, subtle);
+            painter_.StrokeRoundedRect(o.pop_box, theme.radius_control * s, live ? theme.accent : theme.stroke_card, live ? 1.5f * s : 1.0f);
             const float mid = (o.pop_box.top + o.pop_box.bottom) * 0.5f;
             if (p.caps.empty()) {
                 painter_.DrawText(shortcuts_text::PressKeys(), o.pop_box, compositor_->TextFormat(), theme.text_secondary,
@@ -330,12 +330,12 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
             const auto& r = o.pop_digits[i];
             const uint8_t level = i < p.digit_levels.size() ? p.digit_levels[i] : 0;
             const D2D1_COLOR_F c = level_color(level);
-            painter_.FillRoundedRect(r, 5 * s, WithAlpha(c, level >= 2 ? 0.20f : 0.12f));
+            painter_.FillRoundedRect(r, theme.radius_control * s, WithAlpha(c, level >= 2 ? 0.20f : 0.12f));
             painter_.DrawText(p.digit_labels[i], r, small_fmt, level >= 2 ? c : theme.text, fluent::HorizontalAlignment::Center);
         }
         if (o.pop_verdict.right > o.pop_verdict.left) {
             const D2D1_COLOR_F c = level_color(p.level);
-            painter_.FillRoundedRect(o.pop_verdict, 8 * s, WithAlpha(c, dark ? 0.16f : 0.09f));
+            painter_.FillRoundedRect(o.pop_verdict, theme.radius_control * s, WithAlpha(c, dark ? 0.16f : 0.09f));
             const wchar_t* glyph = p.level >= 3 ? L"\xEA39" : p.level == 2 ? L"\xE7BA" : p.level == 1 ? L"\xE946" : L"\xE73E";
             DrawIconText(o.pop_verdict.left + 8 * s, o.pop_verdict.top + 10 * s, 20 * s, 20 * s, glyph, L"!", c, 0.72f);
             painter_.DrawText(p.verdict, D2D1::RectF(o.pop_verdict.left + 30 * s, o.pop_verdict.top + 10 * s,
@@ -357,8 +357,8 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
         for (size_t i = 0; i < o.pop_suggest.size() && i < p.suggestions.size(); ++i) {
             const auto& r = o.pop_suggest[i];
             const bool over = hot(kScPopSuggestBase + static_cast<int>(i));
-            painter_.FillRoundedRect(r, 6 * s, WithAlpha(theme.accent, over ? 0.18f : 0.08f));
-            painter_.StrokeRoundedRect(r, 6 * s, WithAlpha(theme.accent, 0.45f), 1);
+            painter_.FillRoundedRect(r, theme.radius_control * s, WithAlpha(theme.accent, over ? 0.18f : 0.08f));
+            painter_.StrokeRoundedRect(r, theme.radius_control * s, WithAlpha(theme.accent, 0.45f), 1);
             painter_.DrawText(p.suggestions[i], r, small_fmt, theme.text, fluent::HorizontalAlignment::Center);
         }
         push_button(o.pop_ignore, shortcuts_text::Ignore(), L"", kScPopIgnore, true, fluent::ButtonKind::Transparent);
@@ -373,12 +373,12 @@ void MainRenderer::DrawSettingsShortcuts(const WindowViewModel& vm, const D2D1_R
     if (o.toast.right > o.toast.left) {
         const D2D1_COLOR_F plate = dark ? D2D1::ColorF(0xF3F3F3) : D2D1::ColorF(0x2B2B2B);
         const D2D1_COLOR_F ink = dark ? D2D1::ColorF(0x1B1B1B) : D2D1::ColorF(0xF5F5F5);
-        painter_.FillRoundedRect(D2D1::RectF(o.toast.left, o.toast.top + 3 * s, o.toast.right, o.toast.bottom + 3 * s), 10 * s,
+        painter_.FillRoundedRect(D2D1::RectF(o.toast.left, o.toast.top + 3 * s, o.toast.right, o.toast.bottom + 3 * s), theme.radius_control * s,
                                  WithAlpha(D2D1::ColorF(0x000000), 0.15f));
-        painter_.FillRoundedRect(o.toast, 10 * s, plate);
+        painter_.FillRoundedRect(o.toast, theme.radius_control * s, plate);
         painter_.DrawText(v->toast, o.toast_text, small_fmt, ink);
         if (o.toast_undo.right > o.toast_undo.left) {
-            if (hot(kScToastUndo)) painter_.FillRoundedRect(o.toast_undo, 6 * s, WithAlpha(ink, 0.12f));
+            if (hot(kScToastUndo)) painter_.FillRoundedRect(o.toast_undo, theme.radius_control * s, WithAlpha(ink, 0.12f));
             painter_.DrawText(shortcuts_text::Undo(), o.toast_undo, title_format,
                               dark ? D2D1::ColorF(0x005FB8) : D2D1::ColorF(0x7CC4FF), fluent::HorizontalAlignment::Center);
         }

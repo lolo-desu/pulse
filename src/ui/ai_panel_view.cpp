@@ -183,6 +183,7 @@ namespace {
 
 AiPanelView::Palette MakePalette(const Theme& theme, bool dark) {
     AiPanelView::Palette p{};
+    p.radius_control = theme.radius_control;
     const D2D1_COLOR_F base = Over(theme.bg, dark ? Hex(0x1c1e1d) : Hex(0xfdfcfb));
     p.bg = base;
     p.card = Over(theme.surface_card, base);
@@ -275,7 +276,7 @@ void AiPanelView::Draw(Compositor* compositor, const AiPanelViewModel& vm, const
     text_color_ = pal.text;
     text3_color_ = pal.text3;
     const float s = scale;
-    Ctx c{compositor, dc, brush_, s};
+    Ctx c{compositor, dc, brush_, s, pal.radius_control};
 
     glass_drawn_ = false;
     if (dock_value_ > 0.0f && column.right > column.left) {
@@ -301,7 +302,7 @@ void AiPanelView::Draw(Compositor* compositor, const AiPanelViewModel& vm, const
                 ID2D1Factory* factory = nullptr;
                 dc->GetFactory(&factory);
                 if (factory) {
-                    factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card, radius, radius), &clip);
+                    factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card, c.Radius(radius), c.Radius(radius)), &clip);
                     factory->Release();
                 }
                 if (clip) {
@@ -349,7 +350,7 @@ void AiPanelView::Draw(Compositor* compositor, const AiPanelViewModel& vm, const
         ID2D1Factory* factory = nullptr;
         dc->GetFactory(&factory);
         if (factory) {
-            factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card, radius, radius), &clip);
+            factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(card, c.Radius(radius), c.Radius(radius)), &clip);
             factory->Release();
         }
         c.Fill(card, radius, pal.pane);
@@ -380,7 +381,7 @@ void AiPanelView::Draw(Compositor* compositor, const AiPanelViewModel& vm, const
 
 void AiPanelView::DrawContent(Compositor* compositor, const AiPanelViewModel& vm, const Palette& pal,
                               const D2D1_RECT_F& panel, float s, uint64_t now_ms) {
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     DrawHeader(compositor, vm, pal, panel, s);
     // Composer: margin 6 12 12.
     const float ch = ComposerHeight(vm, s);
@@ -398,7 +399,7 @@ void AiPanelView::DrawContent(Compositor* compositor, const AiPanelViewModel& vm
 
 void AiPanelView::DrawHeader(Compositor* compositor, const AiPanelViewModel& vm, const Palette& pal,
                              const D2D1_RECT_F& panel, float s) {
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     head_rect_ = D2D1::RectF(panel.left, panel.top, panel.right, panel.top + kHeadDip * s);
     // .a-head: padding 0 10 0 16; spark 18; gap 8; title 14.5 semibold.
     const float cy = head_rect_.top + kHeadDip * s * 0.5f;
@@ -435,7 +436,7 @@ void AiPanelView::DrawHeader(Compositor* compositor, const AiPanelViewModel& vm,
 
 void AiPanelView::DrawEmptyState(Compositor* compositor, const AiPanelViewModel& vm, const Palette& pal,
                                  const D2D1_RECT_F& area, float s, uint64_t now_ms) {
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     // .conv scrolls (overflow auto): in a short window the welcome scrolls
     // like the conversation instead of running under the composer.
     if (!was_empty_) {
@@ -551,7 +552,7 @@ float AiPanelView::ComposerHeight(const AiPanelViewModel& vm, float s) const {
 
 void AiPanelView::DrawComposer(Compositor* compositor, const AiPanelViewModel& vm, const Palette& base,
                                const D2D1_RECT_F& box, float s, uint64_t now_ms) {
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, base.radius_control};
     // Glass: translucent at rest (the panel draws the text); solid while the
     // EDIT has focus, since the EDIT paints an opaque background.
     const bool clear = base.glass && !vm.composer_focused;
@@ -735,7 +736,7 @@ void AiPanelView::DrawModelMenu(Compositor* compositor, const AiPanelViewModel& 
         return;
     }
     if (t < 1.0f) decor_ = true;
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     // Geometry: width 300, right = button right + 6, bottom = button top - 8.
     const float w = 300.0f * s;
     const float pad = 6.0f * s;
@@ -858,7 +859,7 @@ void AiPanelView::DrawModelMenu(Compositor* compositor, const AiPanelViewModel& 
         ID2D1Factory* factory = nullptr;
         c.dc->GetFactory(&factory);
         if (factory) {
-            factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(box, radius, radius), &clip);
+            factory->CreateRoundedRectangleGeometry(D2D1::RoundedRect(box, c.Radius(radius), c.Radius(radius)), &clip);
             factory->Release();
         }
     }
@@ -1013,7 +1014,7 @@ void AiPanelView::DrawStatusChip(Compositor* compositor, const Theme& theme, con
     if (!formats_.small125 || !EnsureBrush(dc)) return;
     const Palette pal = MakePalette(theme, chip.dark);
     const float s = scale;
-    Ctx c{compositor, dc, brush_, s};
+    Ctx c{compositor, dc, brush_, s, pal.radius_control};
     const bool busy = chip.state == AiChipState::Busy;
     const bool waiting = chip.state == AiChipState::Waiting;
     const bool done = chip.state == AiChipState::Done;

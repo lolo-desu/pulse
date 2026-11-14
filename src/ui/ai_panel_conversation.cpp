@@ -45,6 +45,11 @@ ID2D1Factory* FactoryOf(ID2D1DeviceContext* dc) {
 
 // A rounded rect with its own radius per corner (.user .bub: 16 16 4 16).
 void FillCorners(const Ctx& c, const D2D1_RECT_F& r, float tl, float tr, float br, float bl, D2D1_COLOR_F color) {
+    tl = c.Radius(tl); tr = c.Radius(tr); br = c.Radius(br); bl = c.Radius(bl);
+    if (tl <= 0.0f && tr <= 0.0f && br <= 0.0f && bl <= 0.0f) {
+        c.Fill(r, 0.0f, color);
+        return;
+    }
     ID2D1Factory* f = FactoryOf(c.dc);
     if (!f) return;
     ID2D1PathGeometry* g = nullptr;
@@ -210,7 +215,7 @@ bool PushRounded(const Ctx& c, const D2D1_RECT_F& r, float radius) {
     ID2D1Factory* f = FactoryOf(c.dc);
     if (!f) return false;
     ID2D1RoundedRectangleGeometry* g = nullptr;
-    const bool ok = SUCCEEDED(f->CreateRoundedRectangleGeometry(D2D1::RoundedRect(r, radius, radius), &g)) && g;
+    const bool ok = SUCCEEDED(f->CreateRoundedRectangleGeometry(D2D1::RoundedRect(r, c.Radius(radius), c.Radius(radius)), &g)) && g;
     f->Release();
     if (!ok) return false;
     c.dc->PushLayer(D2D1::LayerParameters1(r, g, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), 1.0f,
@@ -290,7 +295,7 @@ void AiPanelView::ScrollToEnd() {
 
 void AiPanelView::DrawConversation(Compositor* compositor, const AiPanelViewModel& vm, const Palette& pal,
                                    const D2D1_RECT_F& area, float s, uint64_t now_ms) {
-    Ctx c{compositor, compositor->Dc(), brush_, s};
+    Ctx c{compositor, compositor->Dc(), brush_, s, pal.radius_control};
     ID2D1DeviceContext* dc = c.dc;
     const bool motion_on = motion::SystemAnimationsEnabled();
     was_empty_ = false;
@@ -1873,7 +1878,7 @@ void AiPanelView::DrawConversation(Compositor* compositor, const AiPanelViewMode
                     }
                     const float hw = 0.5f * s;
                     const D2D1_RECT_F sr = D2D1::RectF(ar.left + hw, ar.top + hw, ar.right - hw, ar.bottom - hw);
-                    dc->DrawRoundedRectangle(D2D1::RoundedRect(sr, 13.0f * s - hw, 13.0f * s - hw),
+                    dc->DrawRoundedRectangle(D2D1::RoundedRect(sr, (std::max)(0.0f, c.Radius(13.0f * s) - hw), (std::max)(0.0f, c.Radius(13.0f * s) - hw)),
                                              c.B(ah ? pal.accent : pal.line), 1.0f * s, dash);
                     if (dash) dash->Release();
                     const D2D1_COLOR_F ink = ah ? pal.text : pal.text3;
@@ -2843,7 +2848,7 @@ void AiPanelView::DrawConversation(Compositor* compositor, const AiPanelViewMode
                             }
                             const float hw = 0.5f * s;
                             const D2D1_RECT_F sr = D2D1::RectF(ar.left + hw, ar.top + hw, ar.right - hw, ar.bottom - hw);
-                            dc->DrawRoundedRectangle(D2D1::RoundedRect(sr, 13.0f * s - hw, 13.0f * s - hw),
+                            dc->DrawRoundedRectangle(D2D1::RoundedRect(sr, (std::max)(0.0f, c.Radius(13.0f * s) - hw), (std::max)(0.0f, c.Radius(13.0f * s) - hw)),
                                                      c.B(ah ? pal.accent : pal.line), 1.0f * s, dash);
                             if (dash) dash->Release();
                             const D2D1_COLOR_F ink = dv.settled ? Alpha(pal.text3, 0.6f) : ah ? pal.text : pal.text3;

@@ -128,14 +128,14 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 1, hovered_row, lay.nav_row[hovered_row], motion_frame_, now, 120);
             MakeBrush(dc, theme.fill_hover, brFillSelected_);
             FillRoundedRect(dc, brFillSelected_.get(), rc.left, rc.top,
-                            rc.right - rc.left, rc.bottom - rc.top, 6.0f * scale_);
+                            rc.right - rc.left, rc.bottom - rc.top, theme.radius_control * scale_);
         }
         if (nav_page >= 0 && nav_page < kSettingsNavCount) {
             const D2D1_RECT_F rc = settings_nav_pill_.Update(
                 1, nav_page, lay.nav_row[nav_page], motion_frame_, now, 200);
             MakeBrush(dc, theme.fill_selected, brFillSelected_);
             FillRoundedRect(dc, brFillSelected_.get(), rc.left, rc.top,
-                            rc.right - rc.left, rc.bottom - rc.top, 6.0f * scale_);
+                            rc.right - rc.left, rc.bottom - rc.top, theme.radius_control * scale_);
             MakeBrush(dc, theme.accent, brFillSelected_);
             const float bar_h = (std::min)(20.0f * scale_, (rc.bottom - rc.top) * 0.45f);
             FillRoundedRect(dc, brFillSelected_.get(), rc.left, (rc.top + rc.bottom - bar_h) * 0.5f, 3*scale_, bar_h, 1.5f*scale_);
@@ -214,9 +214,9 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
         auto draw_card = [&](const D2D1_RECT_F& card) {
             MakeBrush(dc, theme.fill_input, brFillInput_);
             FillRoundedRect(dc, brFillInput_.get(), card.left, card.top,
-                            card.right - card.left, card.bottom - card.top, 8.0f * scale_);
+                            card.right - card.left, card.bottom - card.top, theme.radius_control * scale_);
             MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, 8.0f * scale_, 8.0f * scale_),
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, theme.radius_control * scale_, theme.radius_control * scale_),
                                      brStrokeCard_.get(), 1.0f);
         };
         DrawSettingsCore(vm, rect, theme);
@@ -293,7 +293,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             if (IsHovered(vm, HitTestResult::SettingsIndexVolume, static_cast<int>(i))) {
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), row.left, row.top,
-                                row.right - row.left, row.bottom - row.top, 6.0f * scale_);
+                                row.right - row.left, row.bottom - row.top, theme.radius_control * scale_);
             }
             fluent::ControlState check{};
             check.checked = volume.checked;
@@ -347,7 +347,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             if (service && IsHovered(vm, HitTestResult::SettingsIndexExcludeAction, 1)) {
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), row.left + 4.0f * scale_, row.top + 4.0f * scale_,
-                                row.right - row.left - 8.0f * scale_, 52.0f * scale_, 6.0f * scale_);
+                                row.right - row.left - 8.0f * scale_, 52.0f * scale_, theme.radius_control * scale_);
             }
             {
                 // Outlined shield, matching the 16-DIP row icons.
@@ -407,7 +407,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 if (IsHovered(vm, HitTestResult::SettingsIndexExcludeAction, 2)) {
                     MakeBrush(dc, theme.fill_hover, brFillHover_);
                     FillRoundedRect(dc, brFillHover_.get(), more.left, more.top,
-                                    more.right - more.left, more.bottom - more.top, 4.0f * scale_);
+                                    more.right - more.left, more.bottom - more.top, theme.radius_control * scale_);
                 }
                 MakeBrush(dc, theme.accent, brAccent_);
                 DrawTextRect(dc, compositor_->SmallFormat(), brAccent_.get(),
@@ -433,7 +433,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                     MakeBrush(dc, theme.fill_hover, brFillHover_);
                     FillRoundedRect(dc, brFillHover_.get(), group.left, group.top + 2.0f * scale_,
                                     group.right - group.left, group.bottom - group.top - 4.0f * scale_,
-                                    6.0f * scale_);
+                                    theme.radius_control * scale_);
                 }
                 fluent::ControlState check{};
                 check.checked = on && SystemGroupEnabled(vm, g);
@@ -503,7 +503,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             if (IsHovered(vm, HitTestResult::SettingsIndexExcludeRemove, static_cast<int>(i))) {
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), row.left, row.top,
-                                row.right - row.left, row.bottom - row.top, 6.0f * scale_);
+                                row.right - row.left, row.bottom - row.top, theme.radius_control * scale_);
             }
             MakeBrush(dc, theme.text, brText_);
             DrawTextRect(dc, compositor_->SmallFormat(), brText_.get(),
@@ -584,9 +584,9 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
         auto draw_card = [&](const D2D1_RECT_F& card) {
             MakeBrush(dc, theme.fill_input, brFillInput_);
             FillRoundedRect(dc, brFillInput_.get(), card.left, card.top,
-                            card.right - card.left, card.bottom - card.top, 8.0f * scale_);
+                            card.right - card.left, card.bottom - card.top, theme.radius_control * scale_);
             MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, 8.0f * scale_, 8.0f * scale_),
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, theme.radius_control * scale_, theme.radius_control * scale_),
                                      brStrokeCard_.get(), 1.0f);
         };
 
@@ -675,7 +675,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 if (IsHovered(vm, HitTestResult::SettingsAboutAction, 3 + i)) {
                     MakeBrush(dc, theme.fill_hover, brFillHover_);
                     FillRoundedRect(dc, brFillHover_.get(), row.left, row.top,
-                                    row.right - row.left, row.bottom - row.top, 4.0f * scale_);
+                                    row.right - row.left, row.bottom - row.top, theme.radius_control * scale_);
                 }
                 painter_.DrawGlyph(kApps[i].glyph,
                                    D2D1::RectF(row.left + 8.0f * scale_, row.top,
@@ -718,7 +718,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), row.left + 4.0f * scale_, row.top,
                                 row.right - row.left - 8.0f * scale_, row.bottom - row.top,
-                                4.0f * scale_);
+                                theme.radius_control * scale_);
             }
             MakeBrush(dc, theme.text, brText_);
             DrawTextRect(dc, compositor_->TextFormat(), brText_.get(),
@@ -828,7 +828,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             if (IsHovered(vm, HitTestResult::SettingsToggle, 24)) {
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), hints.left + 4.0f * scale_, hints.top + 2.0f * scale_,
-                                hints.right - hints.left - 8.0f * scale_, hints.bottom - hints.top - 4.0f * scale_, 4.0f * scale_);
+                                hints.right - hints.left - 8.0f * scale_, hints.bottom - hints.top - 4.0f * scale_, theme.radius_control * scale_);
             }
             const float sw_right = hints.right - 16.0f * scale_;
             tip_row(hints, L"\xE82F", pulse::l10n::Get(pulse::l10n::StringId::SettingsHints),
@@ -845,7 +845,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 ComPtr<ID2D1RoundedRectangleGeometry> clip;
                 if (factory.get()) factory->CreateRoundedRectangleGeometry(
                     D2D1::RoundedRect(D2D1::RectF(card.left + 1.0f, card.top + 1.0f, card.right - 1.0f, card.bottom - 1.0f),
-                                      7.0f * scale_, 7.0f * scale_), &clip);
+                                      (std::max)(0.0f, theme.radius_control * scale_ - 1.0f), (std::max)(0.0f, theme.radius_control * scale_ - 1.0f)), &clip);
                 if (clip.get()) dc->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), clip.get()), nullptr);
                 MakeBrush(dc, WithAlpha(theme.text, vm.dark ? 0.035f : 0.024f), brFillHover_);
                 dc->FillRectangle(D2D1::RectF(card.left, reset.top, card.right, card.bottom), brFillHover_.get());
@@ -907,7 +907,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                 MakeBrush(dc, theme.fill_hover, brFillHover_);
                 FillRoundedRect(dc, brFillHover_.get(), row.left + 4.0f * scale_, row.top,
                                 row.right - row.left - 8.0f * scale_, row.bottom - row.top,
-                                4.0f * scale_);
+                                theme.radius_control * scale_);
             }
             MakeBrush(dc, theme.text, brText_);
             DrawTextRect(dc, compositor_->TextFormat(), brText_.get(),
@@ -967,7 +967,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
                     if (IsHovered(vm, HitTestResult::SettingsReleaseNote, static_cast<int>(i))) {
                         MakeBrush(dc, theme.fill_hover, brFillHover_);
                         FillRoundedRect(dc, brFillHover_.get(), row.left, row.top,
-                                        row.right - row.left, row.bottom - row.top, 4.0f * scale_);
+                                        row.right - row.left, row.bottom - row.top, theme.radius_control * scale_);
                     }
                     painter_.DrawGlyph(expanded ? L"\uE70D" : L"\uE76C",
                                        D2D1::RectF(row.left + 6.0f * scale_, row.top,
@@ -1076,9 +1076,9 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             if (card.right <= card.left || card.bottom <= card.top) return;
             MakeBrush(dc, theme.fill_input, brFillInput_);
             FillRoundedRect(dc, brFillInput_.get(), card.left, card.top,
-                            card.right - card.left, card.bottom - card.top, 8.0f * scale_);
+                            card.right - card.left, card.bottom - card.top, theme.radius_control * scale_);
             MakeBrush(dc, theme.stroke_card, brStrokeCard_);
-            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, 8.0f * scale_, 8.0f * scale_),
+            dc->DrawRoundedRectangle(D2D1::RoundedRect(card, theme.radius_control * scale_, theme.radius_control * scale_),
                                      brStrokeCard_.get(), 1.0f);
         };
         draw_card(lay.duplicate_options);

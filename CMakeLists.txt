@@ -266,6 +266,8 @@ target_link_libraries(pulse_duplicate_scan_test PRIVATE ole32)
 add_executable(pulse_drag_drop_test src/bench/drag_drop_test_main.cpp)
 target_link_libraries(pulse_drag_drop_test PRIVATE ole32 shell32 uuid user32)
 
+add_executable(pulse_drag_feedback_layout_test src/bench/drag_feedback_layout_test.cpp)
+
 add_executable(pulse_drop_staging_test src/bench/drop_staging_test.cpp src/app/drop_staging.cpp)
 add_executable(pulse_drop_staging_failure_test src/bench/drop_staging_failure_test.cpp)
 

@@ -1,4 +1,5 @@
 #include "../app/app_internal.h"
+#include "../app/ai_assistant_chat.h"
 #include "../ui/ui_renderer.h"
 #include <cstdio>
 #include <filesystem>
@@ -21,7 +22,11 @@ int RunClassicRibbonProbe(AppState& s, const wchar_t* output) {
         for (int i = 0; i < 20; ++i) {
             MSG msg{};
             while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+            // A hidden capture has no display-paced frame pump. Exercise the same
+            // timer and render path each tick so filter and tray motion can settle.
+            SendMessageW(s.hwnd, WM_TIMER, kTimerUi, 0);
             ProcessPendingResults(s);
+            Render(s);
             Sleep(20);
         }
         Render(s);
@@ -47,6 +52,19 @@ int RunClassicRibbonProbe(AppState& s, const wchar_t* output) {
         check(s.compositor.SaveSnapshot((std::filesystem::path(output).parent_path() / name).c_str()), "rendered screenshot saved");
     };
     check(s.renderer.ClassicRibbon(), "classic ribbon active");
+    {
+        const float width = static_cast<float>(s.compositor.Width());
+        const float height = static_cast<float>(s.compositor.Height());
+        const auto content = s.renderer.ContentRect(width, height);
+        check(content.left == s.renderer.EffectiveSidebarWidth(width) && content.right == width &&
+              content.top == s.renderer.TitleBarHeight() + s.renderer.ToolbarHeight() &&
+              content.bottom == s.renderer.SidebarRect(width, height).bottom,
+              "file area meets shared separators without card gutters");
+        const auto toolbar = layout();
+        check(toolbar.overflow.right == toolbar.overflow.left &&
+              std::abs(toolbar.filter.right - (width - 8 * s.scale)) < 0.01f,
+              "redundant overflow removed and view commands align to right edge");
+    }
     for (int tab : {1, 2, 0}) {
         click(layout().ribbon_tabs[static_cast<size_t>(tab + 1)], ui::HitTestResult::RibbonTab, tab);
         check(s.renderer.RibbonTab() == tab, "ribbon tab switches through normal input handler");
@@ -124,6 +142,27 @@ int RunClassicRibbonProbe(AppState& s, const wchar_t* output) {
         s.tray.Clear();
         pump();
     }
+    // Local, synthetic content only: exercise both AI surfaces without sending a request.
+    s.aiAssistant.prefs_loaded = true;
+    s.aiAssistant.floating = false;
+    AiAssistantOpen(s, false);
+    pump();
+    check(AiAssistantIsOpen(s), "assistant opens in isolated instance");
+    shot(L"assistant-empty.png");
+    auto& chat = Chat(s);
+    ui::AiBlockView user;
+    user.id = 1; user.kind = ui::AiBlockKind::User; user.text = L"Organize this folder";
+    ui::AiBlockView answer;
+    answer.id = 2; answer.kind = ui::AiBlockKind::Text; answer.text = L"This is a local preview of the classic assistant style.";
+    chat.blocks = {user, answer};
+    pump();
+    shot(L"assistant-conversation.png");
+    AiAssistantClose(s, false);
+    s.aiAssistant.floating = true;
+    AiAssistantOpen(s, false);
+    pump();
+    shot(L"assistant-floating.png");
+    AiAssistantClose(s, false);
     std::fprintf(log, "Failures: %d\n", failures);
     std::fclose(log);
     return failures ? 1 : 0;

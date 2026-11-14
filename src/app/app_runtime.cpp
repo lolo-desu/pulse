@@ -3539,7 +3539,8 @@ std::wstring TooltipForHover(AppState& s) {
     case R::ToolbarGroup: return text(I::GroupBy);
     case R::ToolbarGroupClear: return text(I::GroupClear);
     case R::ToolbarMore:   // the customize button (T5); silent while its picker is open
-        return ui::ToolbarPickerOpen() ? std::wstring() : text(I::CustomizeToolbar);
+        return s.renderer.ClassicRibbon() ? text(I::RibbonFile)
+             : ui::ToolbarPickerOpen() ? std::wstring() : text(I::CustomizeToolbar);
     case R::ToolbarPin: {
         const auto pins = ToolbarPinActions(s);
         if (s.hoverControlIndex >= static_cast<int>(pins.size()))

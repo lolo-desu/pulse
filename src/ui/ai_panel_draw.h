@@ -21,6 +21,7 @@ struct AiPanelView::Palette {
     D2D1_COLOR_F shadow;
     D2D1_COLOR_F folder_icon;
     std::array<D2D1_COLOR_F, 6> tint_fg, tint_bg;
+    float radius_control = 0.0f;
     // Docked over a wallpaper or Mica: the column is a translucent card like
     // the pane, and the welcome cards and the resting composer let it show
     // through. Menus, cards in the conversation and the focused composer
@@ -90,17 +91,23 @@ struct Ctx {
     ID2D1DeviceContext* dc;
     ID2D1SolidColorBrush* brush;
     float s;
+    float radius_control;
+
+    // All rectangular surfaces share the theme; circles use explicit ellipses.
+    float Radius(float requested) const { return (std::min)(requested, radius_control * s); }
 
     ID2D1SolidColorBrush* B(D2D1_COLOR_F c) const { brush->SetColor(c); return brush; }
 
     void Fill(const D2D1_RECT_F& r, float radius, D2D1_COLOR_F c) const {
         if (c.a <= 0.0f) return;
+        radius = Radius(radius);
         if (radius <= 0.0f) dc->FillRectangle(r, B(c));
         else dc->FillRoundedRectangle(D2D1::RoundedRect(r, radius, radius), B(c));
     }
     // A 1 px border inside `r`.
     void Stroke(const D2D1_RECT_F& r, float radius, D2D1_COLOR_F c, float width = 1.0f) const {
         if (c.a <= 0.0f) return;
+        radius = Radius(radius);
         const float h = width * 0.5f;
         const D2D1_RECT_F in = D2D1::RectF(r.left + h, r.top + h, r.right - h, r.bottom - h);
         dc->DrawRoundedRectangle(D2D1::RoundedRect(in, (std::max)(0.0f, radius - h), (std::max)(0.0f, radius - h)),

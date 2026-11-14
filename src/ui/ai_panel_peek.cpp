@@ -59,7 +59,7 @@ void AiPanelView::DrawPeek(Compositor* compositor, const AiPanelViewModel& vm, c
     if (!formats_.body13b || !EnsureBrush(dc)) return;
     const Palette pal = AiPanelPalette(theme, vm.dark);
     const float s = scale;
-    Ctx c{compositor, dc, brush_, s};
+    Ctx c{compositor, dc, brush_, s, pal.radius_control};
 
     // Opacity over .25 s, the move over .3 s with the design's curve; going
     // out runs the same way back.

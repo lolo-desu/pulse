@@ -46,11 +46,11 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
     auto* dc=compositor_->Dc();
     auto fill=[&](const D2D1_RECT_F& r,float radius,const D2D1_COLOR_F& c) {
         Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> b;dc->CreateSolidColorBrush(c,&b);
-        if(b) dc->FillRoundedRectangle(D2D1::RoundedRect(r,radius,radius),b.Get());
+        if(b) dc->FillRoundedRectangle(D2D1::RoundedRect(r,(std::min)(radius,theme.radius_control*scale_),(std::min)(radius,theme.radius_control*scale_)),b.Get());
     };
     auto stroke=[&](const D2D1_RECT_F& r,float radius,const D2D1_COLOR_F& c,float w) {
         Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> b;dc->CreateSolidColorBrush(c,&b);
-        if(b) dc->DrawRoundedRectangle(D2D1::RoundedRect(r,radius,radius),b.Get(),w);
+        if(b) dc->DrawRoundedRectangle(D2D1::RoundedRect(r,(std::min)(radius,theme.radius_control*scale_),(std::min)(radius,theme.radius_control*scale_)),b.Get(),w);
     };
     auto hline=[&](float x0,float x1,float y,const D2D1_COLOR_F& c) {
         Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> b;dc->CreateSolidColorBrush(c,&b);
@@ -62,8 +62,8 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
     const D2D1_COLOR_F subtle=WithAlpha(theme.text,dark ? 0.06f : 0.05f);
     IDWriteTextFormat* title_format=SysCtxTitleFormat();
     auto card=[&](const D2D1_RECT_F& r) {
-        painter_.FillRoundedRect(r,10*s,theme.fill_input);
-        painter_.StrokeRoundedRect(r,10*s,theme.stroke_card,1);
+        painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_input);
+        painter_.StrokeRoundedRect(r,theme.radius_control * s,theme.stroke_card,1);
     };
     auto hot_hit=[&](int index) {return IsHovered(vm,HitTestResult::SettingsToggle,index);};
     static constexpr I kTabs[]={I::ContextTabItem,I::ContextTabBackground,I::ContextTabRow};
@@ -80,10 +80,10 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
             const auto& r=l.pulse_tab[i];
             const bool active=vm.settings_context_tab==i;
             if(active) {
-                painter_.FillRoundedRect(r,6*s,theme.fill_selected);
+                painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_selected);
                 painter_.FillRoundedRect(D2D1::RectF(r.left,r.top+8*s,r.left+3*s,r.bottom-8*s),1.5f*s,theme.accent);
             } else if(hot_hit(64+i)) {
-                painter_.FillRoundedRect(r,6*s,theme.fill_hover);
+                painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_hover);
             }
             const float mid=(r.top+r.bottom)*0.5f;
             DrawIconText(r.left+10*s,mid-8*s,16*s,16*s,kTabGlyph[i],L"",theme.text_secondary,0.75f);
@@ -113,7 +113,7 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
         // Opens 系统右键菜单 (page 6), where both switches per entry live.
         if(const auto r=l.context_system_hint;r.bottom>r.top) {
             const bool hover=IsHovered(vm,HitTestResult::SettingsNav,6);
-            if(hover) painter_.FillRoundedRect(r,6*s,theme.fill_hover);
+            if(hover) painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_hover);
             const float mid=(r.top+r.bottom)*0.5f;
             DrawIconText(r.left+10*s,mid-8*s,16*s,16*s,L"\xE7F4",L"",theme.text_secondary,0.75f);
             DrawIconText(r.right-24*s,mid-7*s,14*s,14*s,L"\xE72A",L"",hover ? theme.accent : theme.text_secondary,0.7f);
@@ -139,7 +139,7 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
         bool any=vm.settings_builtin_hidden!=0;
         for(int i=0;i<static_cast<int>(app::BuiltinMenuSurface::Count);++i) any|=PulseMenuOrderCustom(vm,static_cast<app::BuiltinMenuSurface>(i));
         const auto& r=l.pulse_restore;
-        if(any && hot_hit(67)) painter_.FillRoundedRect(r,6*s,theme.fill_hover);
+        if(any && hot_hit(67)) painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_hover);
         const D2D1_COLOR_F color=any ? theme.text_secondary : theme.text_disabled;
         const float mid=(r.top+r.bottom)*0.5f;
         DrawIconText(r.left+6*s,mid-8*s,16*s,16*s,L"\xE777",L"",color,0.62f);
@@ -157,8 +157,8 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
             const auto& r=l.pulse_preset[i];
             const bool on=static_cast<int>(active)==i;
             const bool hover=i<3 && !on && hot_hit(60+i);
-            painter_.FillRoundedRect(r,13*s,on ? WithAlpha(theme.accent,0.16f) : hover ? theme.fill_hover : WithAlpha(theme.text,0.0f));
-            painter_.StrokeRoundedRect(r,13*s,on ? WithAlpha(theme.accent,0.55f) : theme.stroke_card,1);
+            painter_.FillRoundedRect(r,theme.radius_control * s,on ? WithAlpha(theme.accent,0.16f) : hover ? theme.fill_hover : WithAlpha(theme.text,0.0f));
+            painter_.StrokeRoundedRect(r,theme.radius_control * s,on ? WithAlpha(theme.accent,0.55f) : theme.stroke_card,1);
             painter_.DrawText(l10n::Get(kPresetName[i]),r,compositor_->SmallFormat(),
                               on ? theme.text : i==3 ? theme.text_disabled : theme.text_secondary,fluent::HorizontalAlignment::Center);
         }
@@ -179,11 +179,11 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
             hot=hot_hit(hit);
         }
         if(r.bottom<=r.top || r.bottom<l.content.top || r.top>l.content.bottom) continue;
-        if(hot) painter_.FillRoundedRect(r,8*s,theme.fill_hover);
+        if(hot) painter_.FillRoundedRect(r,theme.radius_control * s,theme.fill_hover);
         const float mid=(r.top+r.bottom)*0.5f;
         const float dim=on ? 1.0f : 0.5f;
         const auto plate=D2D1::RectF(r.left+10*s,mid-14*s,r.left+38*s,mid+14*s);
-        painter_.FillRoundedRect(plate,7*s,subtle);
+        painter_.FillRoundedRect(plate,theme.radius_control * s,subtle);
         const wchar_t* glyph=row.glyph ? row.glyph : row.fixed==app::BuiltinFixedRow::Strip ? L"\xE8C6" : L"\xE8A5";
         DrawIconText(plate.left+6*s,plate.top+6*s,16*s,16*s,glyph,L"",WithAlpha(theme.text_secondary,dim),0.8f);
         // Right side: the switch, or 始终显示 for the rows that never hide.
@@ -226,12 +226,12 @@ void MainRenderer::DrawSettingsPulseMenu(const WindowViewModel& vm,const D2D1_RE
     if(l.pulse_side.right>l.pulse_side.left) {
         card(l.pulse_side);
         const auto& t=l.pulse_side_tab;
-        painter_.FillRoundedRect(t,6*s,theme.fill_selected);
+        painter_.FillRoundedRect(t,theme.radius_control * s,theme.fill_selected);
         painter_.DrawText(sysctx_text::TabPreview(),t,compositor_->TextFormat(),theme.text,fluent::HorizontalAlignment::Center);
         hline(l.pulse_side.left,l.pulse_side.right,t.bottom+8*s,theme.stroke_divider);
         if(const auto& n=l.pulse_side_note;n.bottom>n.top) {
-            painter_.FillRoundedRect(n,8*s,subtle);
-            painter_.StrokeRoundedRect(n,8*s,theme.stroke_card,1);
+            painter_.FillRoundedRect(n,theme.radius_control * s,subtle);
+            painter_.StrokeRoundedRect(n,theme.radius_control * s,theme.stroke_card,1);
             DrawIconText(n.left+12*s,n.top+12*s,16*s,16*s,L"\xE946",L"",theme.text_secondary,0.8f);
             painter_.DrawWrappedCaption(PulseMenuSideNote(),D2D1::Point2F(n.left+36*s,n.top+12*s),n.right-n.left-48*s,theme.text_secondary);
         }

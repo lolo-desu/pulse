@@ -205,14 +205,13 @@ inline ToolbarLayout MakeClassicRibbonLayout(float width, float scale, float top
     out.address = {x + 4 * scale, nav_top + 3 * scale, out.search.left - 30 * scale, nav_top + 29 * scale};
     out.navigation[3] = {out.address.right, nav_top, out.search.left - 6 * scale, nav_top + 32 * scale};
     out.create = {8 * scale, top + 30 * scale, 92 * scale, top + 92 * scale};
-    out.overflow = {width - 38 * scale, top + 31 * scale, width - 6 * scale, top + 63 * scale};
     // A vertical view group keeps its full labels without stealing file commands.
     const bool filter_open = filter_expand > 0.0f;
     const bool hide_create = width < 220 * scale || (filter_open && width < 360 * scale);
     if (hide_create) out.create = {};
-    const float view_width = filter_open ? std::min(200 * scale, width - (hide_create ? 52 : 148) * scale)
+    const float view_width = filter_open ? std::min(200 * scale, width - (hide_create ? 14 : 110) * scale)
         : width >= 760 * scale ? 116 * scale : 36 * scale;
-    const float view_left = out.overflow.left - view_width - 6 * scale;
+    const float view_left = width - 8 * scale - view_width;
     out.sort = {view_left, top + 29 * scale, view_left + view_width, top + 55 * scale};
     out.filter = {view_left, top + 56 * scale, view_left + view_width, top + 82 * scale};
     out.group = {view_left, top + 83 * scale, view_left + view_width, top + 109 * scale};

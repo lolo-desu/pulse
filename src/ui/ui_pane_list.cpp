@@ -3337,7 +3337,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
             }
         }
         dc->DrawRoundedRectangle(frame, brAccent_.get(), 1.5f * scale_, dashStroke_.get());
-    } else {
+    } else if (!ClassicRibbon() || IsHighContrast()) {
         dc->DrawRoundedRectangle(frame, brAccent_.get(), strokeW);
     }
 
