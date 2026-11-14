@@ -23,7 +23,7 @@ void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, c
     fluent::ControlState state{};
     state.focused = vm.address_searching;
     state.hovered = IsHovered(vm, HitTestResult::AddressSearch);
-    if (vm.address_searching) painter_.DrawTextFieldFrame(field, state);
+    if (vm.address_searching) painter_.DrawTextFieldFrame(field, state, false, ClassicRibbon());
     auto button = [&](D2D1_RECT_F bounds, const std::wstring& text, const wchar_t* glyph,
                       HitTestResult::Region region, bool dropdown = false) {
         fluent::ButtonSpec spec;
@@ -143,6 +143,7 @@ void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, c
         search.leading_glyph = L"\xE721";
         search.trailing_keycap = ClassicRibbon() ? L"" : L"Ctrl+K";
         search.suppress_text = true;
+        search.vertical_edges_only = ClassicRibbon();
         painter_.DrawTextField(search);
         MakeBrush(compositor_->Dc(),theme.text_secondary,brTextSecondary_);
         const float text_left=field.left+36*scale_;
@@ -151,7 +152,7 @@ void MainRenderer::DrawAddressSearchChrome(const WindowViewModel& vm, float w, c
             brTextSecondary_.get(),std::wstring(search.placeholder),text_left,field.top,
             std::max(0.0f,text_right-text_left),field.bottom-field.top);
     }
-    if (vm.address_search_animation > 0.0f) {
+    if (vm.address_search_animation > 0.0f && !ClassicRibbon()) {
         auto color = theme.accent;
         color.a *= vm.address_search_animation;
         ComPtr<ID2D1SolidColorBrush> brush;

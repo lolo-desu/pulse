@@ -86,6 +86,7 @@ struct TextFieldSpec {
     bool compact_leading_glyph = false;
     // Opaque hosted EDIT/Luma overlay sits on the frame; rest fill must match it.
     bool hosted_edit = false;
+    bool vertical_edges_only = false;
     bool suppress_leading_glyph = false; // Reserve space for a caller-drawn vector icon.
 };
 
@@ -413,7 +414,7 @@ public:
     // Main toolbar and file picker command buttons share 20-DIP vector icons.
     void DrawCommandButton(const ButtonSpec& spec);
     void DrawTextFieldFrame(const D2D1_RECT_F& bounds, const ControlState& state,
-                           bool hosted_edit = false);
+                            bool hosted_edit = false, bool vertical_edges_only = false);
     void DrawTextField(const TextFieldSpec& spec);
     void DrawCheckBox(const D2D1_RECT_F& bounds, std::wstring_view text,
                       const ControlState& state);

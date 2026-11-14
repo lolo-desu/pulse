@@ -563,7 +563,7 @@ void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rec
         fluent::ControlState addrState{};
         addrState.focused = vm.address_editing && !vm.address_searching;
         addrState.hovered = !vm.address_editing && IsHovered(vm, HitTestResult::AddressBar);
-        painter_.DrawTextFieldFrame(addrRc, addrState);
+        painter_.DrawTextFieldFrame(addrRc, addrState, false, ClassicRibbon());
         // A long path scrolled toward its root eases there, and back to its
         // end 1.5 s after the pointer leaves (SettleBreadcrumbScroll).
         const bool addr_hot = IsHovered(vm, HitTestResult::AddressBar) ||

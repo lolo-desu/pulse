@@ -998,7 +998,7 @@ void Painter::DrawButton(const ButtonSpec& spec) {
 }
 
 void Painter::DrawTextFieldFrame(const D2D1_RECT_F& bounds, const ControlState& state,
-                                 bool hosted_edit) {
+                                 bool hosted_edit, bool vertical_edges_only) {
     if (!theme_ || !dc_ || Width(bounds) <= 0.0f || Height(bounds) <= 0.0f) {
         return;
     }
@@ -1006,6 +1006,17 @@ void Painter::DrawTextFieldFrame(const D2D1_RECT_F& bounds, const ControlState& 
     const float radius = Px(theme_->radius_control);
     const D2D1_COLOR_F fill = TextFieldFillColor(*theme_, state, dark_, high_contrast_,
                                                 hosted_edit);
+    if (vertical_edges_only) {
+        FillRoundedRect(bounds, 0.0f, fill);
+        const auto edge = !state.enabled ? theme_->text_disabled
+                        : state.focused ? theme_->accent
+                        : state.hovered ? theme_->stroke_input_bottom : theme_->stroke_divider;
+        const float width = std::max(1.0f, std::round(Px(1.0f)));
+        const float top = bounds.top + Px(3.0f), bottom = bounds.bottom - Px(3.0f);
+        FillRoundedRect(D2D1::RectF(bounds.left, top, bounds.left + width, bottom), 0.0f, edge);
+        FillRoundedRect(D2D1::RectF(bounds.right - width, top, bounds.right, bottom), 0.0f, edge);
+        return;
+    }
     D2D1_COLOR_F border;
     D2D1_COLOR_F bottom;
     if (high_contrast_) {
@@ -1056,7 +1067,7 @@ void Painter::DrawTextField(const TextFieldSpec& spec) {
         return;
     }
 
-    DrawTextFieldFrame(spec.bounds, spec.state, spec.hosted_edit);
+    DrawTextFieldFrame(spec.bounds, spec.state, spec.hosted_edit, spec.vertical_edges_only);
 
     const D2D1_COLOR_F foreground = spec.state.enabled ? theme_->text : theme_->text_disabled;
     const D2D1_COLOR_F placeholder_color = theme_->text_secondary;
